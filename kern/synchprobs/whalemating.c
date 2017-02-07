@@ -40,12 +40,26 @@
 #include <test.h>
 #include <synch.h>
 
+int male_present, female_present, mm_present;
+struct lock *lk_male;
+struct lock *lk_female;
+struct lock *lk_mm;
+struct lock *lk_ready;
+struct cv *cv_ready;
+
 /*
  * Called by the driver during initialization.
  */
 
 void whalemating_init() {
-	return;
+    lk_male = lock_create("male");
+    lk_female = lock_create("female");
+    lk_mm = lock_create("matchmaker");
+    lk_ready = lock_create("ready");
+    cv_ready = cv_create("cv");
+    male_present = 0;
+    female_present = 0;
+    mm_present = 0;
 }
 
 /*
@@ -54,38 +68,74 @@ void whalemating_init() {
 
 void
 whalemating_cleanup() {
-	return;
+    lock_destroy(lk_male);
+    lock_destroy(lk_female);
+    lock_destroy(lk_mm);
+    lock_destroy(lk_ready);
+    cv_destroy(cv_ready);
 }
 
 void
 male(uint32_t index)
 {
-	(void)index;
-	/*
-	 * Implement this function by calling male_start and male_end when
-	 * appropriate.
-	 */
-	return;
+    male_start(index);
+    lock_acquire(lk_male);
+
+    lock_acquire(lk_ready);
+    male_present = 1;
+    if (!female_present || !mm_present) {
+        cv_wait(cv_ready, lk_ready);
+    } else {
+        cv_broadcast(cv_ready, lk_ready);
+    }
+
+    male_present = 0;
+    lock_release(lk_ready);
+
+    male_end(index);
+    lock_release(lk_male);
 }
 
 void
 female(uint32_t index)
 {
-	(void)index;
-	/*
-	 * Implement this function by calling female_start and female_end when
-	 * appropriate.
-	 */
-	return;
+    female_start(index);
+    lock_acquire(lk_female);
+
+    lock_acquire(lk_ready);
+    female_present = 1;
+
+    if (!male_present || !mm_present) {
+        cv_wait(cv_ready, lk_ready);
+    } else {
+        cv_broadcast(cv_ready, lk_ready);
+    }
+
+    female_present = 0;
+    lock_release(lk_ready);
+
+    female_end(index);
+    lock_release(lk_female);
 }
 
 void
 matchmaker(uint32_t index)
 {
-	(void)index;
-	/*
-	 * Implement this function by calling matchmaker_start and matchmaker_end
-	 * when appropriate.
-	 */
-	return;
+    matchmaker_start(index);
+    lock_acquire(lk_mm);
+
+    lock_acquire(lk_ready);
+    mm_present = 1;
+
+    if (!male_present || !female_present) {
+        cv_wait(cv_ready, lk_ready);
+    } else {
+        cv_broadcast(cv_ready, lk_ready);
+    }
+
+    mm_present = 0;
+    lock_release(lk_ready);
+
+    matchmaker_end(index);
+    lock_release(lk_mm);
 }
