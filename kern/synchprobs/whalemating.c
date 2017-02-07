@@ -40,7 +40,7 @@
 #include <test.h>
 #include <synch.h>
 
-int male_present, female_present, mm_present;
+int whalecount;
 struct lock *lk_male;
 struct lock *lk_female;
 struct lock *lk_mm;
@@ -57,9 +57,7 @@ void whalemating_init() {
     lk_mm = lock_create("matchmaker");
     lk_ready = lock_create("ready");
     cv_ready = cv_create("cv");
-    male_present = 0;
-    female_present = 0;
-    mm_present = 0;
+    whalecount = 0;
 }
 
 /*
@@ -82,14 +80,14 @@ male(uint32_t index)
     lock_acquire(lk_male);
 
     lock_acquire(lk_ready);
-    male_present = 1;
-    if (!female_present || !mm_present) {
+    whalecount += 1;
+    if (whalecount != 3) {
         cv_wait(cv_ready, lk_ready);
     } else {
         cv_broadcast(cv_ready, lk_ready);
     }
 
-    male_present = 0;
+    whalecount -= 1;
     lock_release(lk_ready);
 
     male_end(index);
@@ -103,15 +101,15 @@ female(uint32_t index)
     lock_acquire(lk_female);
 
     lock_acquire(lk_ready);
-    female_present = 1;
+    whalecount += 1;
 
-    if (!male_present || !mm_present) {
+    if (whalecount != 3) {
         cv_wait(cv_ready, lk_ready);
     } else {
         cv_broadcast(cv_ready, lk_ready);
     }
 
-    female_present = 0;
+    whalecount -= 1;
     lock_release(lk_ready);
 
     female_end(index);
@@ -125,15 +123,15 @@ matchmaker(uint32_t index)
     lock_acquire(lk_mm);
 
     lock_acquire(lk_ready);
-    mm_present = 1;
+    whalecount += 1;
 
-    if (!male_present || !female_present) {
+    if (whalecount != 3) {
         cv_wait(cv_ready, lk_ready);
     } else {
         cv_broadcast(cv_ready, lk_ready);
     }
 
-    mm_present = 0;
+    whalecount -= 1;
     lock_release(lk_ready);
 
     matchmaker_end(index);
