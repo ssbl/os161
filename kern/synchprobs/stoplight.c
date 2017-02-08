@@ -69,13 +69,21 @@
 #include <test.h>
 #include <synch.h>
 
+struct semaphore *sem_ixn;
+struct lock *lk_quadrants[4];     /* array of locks */
+
 /*
  * Called by the driver during initialization.
  */
 
 void
 stoplight_init() {
-	return;
+    int i;
+
+    sem_ixn = sem_create("intersection", 3);
+    for (i = 0; i < 4; i++) {
+        lk_quadrants[i] = lock_create("quadrant lock");
+    }
 }
 
 /*
@@ -83,36 +91,62 @@ stoplight_init() {
  */
 
 void stoplight_cleanup() {
-	return;
+    int i;
+
+    for (i = 0; i < 4; i++) {
+        lock_destroy(lk_quadrants[i]);
+    }
+    sem_destroy(sem_ixn);
 }
 
 void
 turnright(uint32_t direction, uint32_t index)
 {
-	(void)direction;
-	(void)index;
-	/*
-	 * Implement this function.
-	 */
-	return;
+    P(sem_ixn);
+    lock_acquire(lk_quadrants[direction]);
+    inQuadrant(direction, index);
+    leaveIntersection(index);
+    lock_release(lk_quadrants[direction]);
+    V(sem_ixn);
 }
+
 void
 gostraight(uint32_t direction, uint32_t index)
 {
-	(void)direction;
-	(void)index;
-	/*
-	 * Implement this function.
-	 */
-	return;
+    int step_1 = direction;
+    int step_2 = (direction + 3) % 4;
+
+    P(sem_ixn);
+    lock_acquire(lk_quadrants[step_1]);
+    inQuadrant(step_1, index);
+    lock_acquire(lk_quadrants[step_2]);
+
+    inQuadrant(step_2, index);
+    lock_release(lk_quadrants[step_1]);
+    leaveIntersection(index);
+    lock_release(lk_quadrants[step_2]);
+    V(sem_ixn);
 }
+
 void
 turnleft(uint32_t direction, uint32_t index)
 {
-	(void)direction;
-	(void)index;
-	/*
-	 * Implement this function.
-	 */
-	return;
+    int step_1 = direction;
+    int step_2 = (direction + 3) % 4;
+    int step_3 = (direction + 2) % 4;
+
+    P(sem_ixn);
+    lock_acquire(lk_quadrants[step_1]);
+    inQuadrant(step_1, index);
+    lock_acquire(lk_quadrants[step_2]);
+
+    inQuadrant(step_2, index);
+    lock_release(lk_quadrants[step_1]);
+
+    lock_acquire(lk_quadrants[step_3]);
+    inQuadrant(step_3, index);
+    lock_release(lk_quadrants[step_2]);
+    leaveIntersection(index);
+    lock_release(lk_quadrants[step_3]);
+    V(sem_ixn);
 }
