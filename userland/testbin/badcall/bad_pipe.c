@@ -68,7 +68,12 @@ pipe_unaligned(void)
 	ptr++;
 
 	rv = pipe((int *)ptr);
-	report_survival(rv, errno, &result);
+	report_survival(rv, errno);
+	if (rv == 0) {
+		memmove(fds, ptr, 2*sizeof(int));
+		close(fds[0]);
+		close(fds[1]);
+	}
 	return result;
 }
 
