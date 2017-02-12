@@ -424,8 +424,6 @@ rwlock_release_write(struct rwlock *rwlock)
 
     lock_acquire(rwlock->rwlock_lk);
     rwlock->rwlock_wlocked = 0;
-    if (rwlock->rwlock_numreaders > 0) {
-        cv_broadcast(rwlock->rwlock_cv, rwlock->rwlock_lk);
-    }
+    cv_broadcast(rwlock->rwlock_cv, rwlock->rwlock_lk);
     lock_release(rwlock->rwlock_lk);
 }
