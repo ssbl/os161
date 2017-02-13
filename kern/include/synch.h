@@ -154,9 +154,13 @@ void cv_broadcast(struct cv *cv, struct lock *lock);
 struct rwlock {
     char *rwlock_name;
     struct cv *rwlock_cv;
+    struct cv *rwlock_wcv;
     struct lock *rwlock_lk;
+    struct lock *rwlock_wlk;
     int rwlock_numreaders;
+	int rwlock_numreaders_wait;
     int rwlock_wlocked;
+    int rwlock_writer_flag;
     // add what you need here
     // (don't forget to mark things volatile as needed)
 };

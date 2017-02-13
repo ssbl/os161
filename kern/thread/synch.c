@@ -353,6 +353,13 @@ rwlock_create(const char *name)
         return NULL;
     }
 
+    rwlock->rwlock_wlk = lock_create("rwlock_wlk");
+    if (rwlock->rwlock_wlk == NULL) {
+        kfree(rwlock->rwlock_name);
+        kfree(rwlock);
+        return NULL;
+    }
+
     rwlock->rwlock_cv = cv_create("rwlock_cv");
     if (rwlock->rwlock_cv == NULL) {
         lock_destroy(rwlock->rwlock_lk);
@@ -361,8 +368,20 @@ rwlock_create(const char *name)
         return NULL;
     }
 
+    rwlock->rwlock_wcv = cv_create("rwlock_wcv");
+    if (rwlock->rwlock_wcv == NULL) {
+        lock_destroy(rwlock->rwlock_lk);
+        kfree(rwlock->rwlock_name);
+        kfree(rwlock);
+        return NULL;
+    }
+
     rwlock->rwlock_numreaders = 0;
-    rwlock->rwlock_wlocked = 0;
+    rwlock->rwlock_numreaders_wait = 0;
+    
+	rwlock->rwlock_wlocked = 0;
+   
+    rwlock->rwlock_writer_flag=0;	
 
     return rwlock;
 }
@@ -384,10 +403,12 @@ rwlock_acquire_read(struct rwlock *rwlock)
     KASSERT(rwlock != NULL);
 
     lock_acquire(rwlock->rwlock_lk);
-    while (rwlock->rwlock_wlocked) {
+    rwlock->rwlock_numreaders_wait++;
+	while (rwlock->rwlock_wlocked || rwlock->rwlock_writer_flag) {
         cv_wait(rwlock->rwlock_cv, rwlock->rwlock_lk);
     }
-    rwlock->rwlock_numreaders += 1;
+    rwlock->rwlock_numreaders_wait--;
+	rwlock->rwlock_numreaders += 1;
     lock_release(rwlock->rwlock_lk);
 }
 
@@ -398,8 +419,14 @@ rwlock_release_read(struct rwlock *rwlock)
 
     lock_acquire(rwlock->rwlock_lk);
     rwlock->rwlock_numreaders -= 1;
-    if (rwlock->rwlock_numreaders == 0) {
+    if (rwlock->rwlock_numreaders == 0 && rwlock->rwlock_writer_flag==0) {
         cv_signal(rwlock->rwlock_cv, rwlock->rwlock_lk);
+    }
+    else if (rwlock->rwlock_numreaders == 0 && rwlock->rwlock_writer_flag==1) {
+       	lock_acquire(rwlock->rwlock_wlk);
+	 	cv_signal(rwlock->rwlock_wcv, rwlock->rwlock_wlk);
+		rwlock->rwlock_writer_flag=0;
+		lock_release(rwlock->rwlock_wlk);
     }
     lock_release(rwlock->rwlock_lk);
 }
@@ -408,13 +435,16 @@ void
 rwlock_acquire_write(struct rwlock *rwlock)
 {
     KASSERT(rwlock != NULL);
-
-    lock_acquire(rwlock->rwlock_lk);
-    while (rwlock->rwlock_numreaders > 0 || rwlock->rwlock_wlocked) {
-        cv_wait(rwlock->rwlock_cv, rwlock->rwlock_lk);
+    lock_acquire(rwlock->rwlock_wlk);
+	while (rwlock->rwlock_wlocked) {
+		cv_wait(rwlock->rwlock_wcv, rwlock->rwlock_wlk);
+    }
+    while (rwlock->rwlock_numreaders > 0) {
+		rwlock->rwlock_writer_flag=1;	
+        cv_wait(rwlock->rwlock_wcv, rwlock->rwlock_wlk);
     }
     rwlock->rwlock_wlocked = 1;
-    lock_release(rwlock->rwlock_lk);
+    lock_release(rwlock->rwlock_wlk);
 }
 
 void
@@ -422,8 +452,14 @@ rwlock_release_write(struct rwlock *rwlock)
 {
     KASSERT(rwlock != NULL);
 
-    lock_acquire(rwlock->rwlock_lk);
+    lock_acquire(rwlock->rwlock_wlk);
     rwlock->rwlock_wlocked = 0;
-    cv_broadcast(rwlock->rwlock_cv, rwlock->rwlock_lk);
-    lock_release(rwlock->rwlock_lk);
+	if( rwlock->rwlock_numreaders_wait>0) {
+		lock_acquire(rwlock->rwlock_lk);
+    	cv_broadcast(rwlock->rwlock_cv, rwlock->rwlock_lk);
+		lock_release(rwlock->rwlock_lk);
+	}
+	else
+		cv_signal(rwlock->rwlock_wcv,rwlock->rwlock_wlk);
+    lock_release(rwlock->rwlock_wlk);
 }
