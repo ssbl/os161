@@ -425,9 +425,9 @@ rwlock_release_read(struct rwlock *rwlock)
 
     lock_acquire(rwlock->rwlock_lk);
     rwlock->rwlock_numreaders -= 1;
-    if (rwlock->rwlock_numreaders == 0 && rwlock->rwlock_rwaiting == 0) {
+    if (rwlock->rwlock_numreaders == 0 && rwlock->rwlock_wwaiting == 0) {
         cv_signal(rwlock->rwlock_cv, rwlock->rwlock_lk);
-    } else if (rwlock->rwlock_rwaiting > 0) {
+    } else if (rwlock->rwlock_wwaiting > 0) {
        	lock_acquire(rwlock->rwlock_wlk);
 	 	cv_signal(rwlock->rwlock_wcv, rwlock->rwlock_wlk);
 		lock_release(rwlock->rwlock_wlk);
