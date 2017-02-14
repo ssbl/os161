@@ -107,6 +107,10 @@ int rwtest2(int nargs, char **args) {
         success(TEST161_FAIL, SECRET, "rwt2");
     }
 
+    for (i = 0; i < NUMTHREADS; i++) {
+        rwlock_release_read(rwlock);
+    }
+
     rwlock_destroy(rwlock);
 	return 0;
 }
@@ -115,7 +119,16 @@ int rwtest3(int nargs, char **args) {
 	(void)nargs;
 	(void)args;
 
-	kprintf_n("rwt3 unimplemented\n");
+    rwlock = rwlock_create("rwlock");
+    if (rwlock == NULL) {
+        panic("rwt3: error creating rwlock\n");
+    }
+
+    secprintf(SECRET, "Should panic...", "rwt3");
+    rwlock_release_read(rwlock);
+
+	/* Should not get here on success. */
+
 	success(TEST161_FAIL, SECRET, "rwt3");
 
 	return 0;
@@ -125,7 +138,16 @@ int rwtest4(int nargs, char **args) {
 	(void)nargs;
 	(void)args;
 
-	kprintf_n("rwt4 unimplemented\n");
+    rwlock = rwlock_create("rwlock");
+    if (rwlock == NULL) {
+        panic("rwt3: error creating rwlock\n");
+    }
+
+    secprintf(SECRET, "Should panic...", "rwt3");
+    rwlock_release_write(rwlock);
+
+	/* Should not get here on success. */
+
 	success(TEST161_FAIL, SECRET, "rwt4");
 
 	return 0;
@@ -136,7 +158,18 @@ int rwtest5(int nargs, char **args)
 	(void)nargs;
 	(void)args;
 
-	kprintf_n("rwt5 unimplemented\n");
+    rwlock = rwlock_create("rwlock");
+    if (rwlock == NULL) {
+        panic("rwt3: error creating rwlock\n");
+    }
+
+    secprintf(SECRET, "Should panic...", "rwt3");
+
+    rwlock_acquire_write(rwlock);
+    rwlock_destroy(rwlock);
+
+	/* Should not get here on success. */
+
 	success(TEST161_FAIL, SECRET, "rwt5");
 
 	return 0;

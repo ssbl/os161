@@ -390,6 +390,7 @@ void
 rwlock_destroy(struct rwlock *rwlock)
 {
     KASSERT(rwlock != NULL);
+    KASSERT(!rwlock->wlocked && rwlock->numreaders == 0);
 
     cv_destroy(rwlock->rwlock_cv);
     lock_destroy(rwlock->rwlock_lk);
@@ -416,6 +417,7 @@ void
 rwlock_release_read(struct rwlock *rwlock)
 {
     KASSERT(rwlock != NULL);
+    KASSERT(rwlock->numreaders > 0);
 
     lock_acquire(rwlock->rwlock_lk);
     rwlock->rwlock_numreaders -= 1;
@@ -435,6 +437,7 @@ void
 rwlock_acquire_write(struct rwlock *rwlock)
 {
     KASSERT(rwlock != NULL);
+
     lock_acquire(rwlock->rwlock_wlk);
 	while (rwlock->rwlock_wlocked) {
 		cv_wait(rwlock->rwlock_wcv, rwlock->rwlock_wlk);
@@ -451,6 +454,7 @@ void
 rwlock_release_write(struct rwlock *rwlock)
 {
     KASSERT(rwlock != NULL);
+    KASSERT(rwlock->wlocked);
 
     lock_acquire(rwlock->rwlock_wlk);
     rwlock->rwlock_wlocked = 0;
