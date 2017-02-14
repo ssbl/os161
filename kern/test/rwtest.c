@@ -29,10 +29,13 @@ rw1locktestthread(void *junk, unsigned long num)
     (void)junk;
     (void)num;
 
+    
+    P(testsem);
     rwlock_acquire_write(rwlock);
     kprintf("thread acquired lock\n");
     shared = 50;
     rwlock_release_write(rwlock);
+    V(donesem);
 }
 
 int rwtest(int nargs, char **args)
@@ -40,19 +43,21 @@ int rwtest(int nargs, char **args)
 	(void)nargs;
 	(void)args;
 
-    int i, result;
+    int result;
 
     rwlock = rwlock_create("rwlock");
 
     rwlock_acquire_write(rwlock);
+    testsem = sem_create("testsem", 0);
+    donesem = sem_create("donesem", 0);
     shared = 100;
     result = thread_fork("rwtest1", NULL, rw1locktestthread, NULL, 0);
     KASSERT(result == 0);
 
     rwlock_release_write(rwlock);
 
-    for (i = 0; i < 1000000; i++)
-        ;
+    V(testsem);
+    P(donesem);
 
     if (shared == 50) {
         kprintf("%d\n", shared);
@@ -63,6 +68,9 @@ int rwtest(int nargs, char **args)
     }
 
     rwlock_destroy(rwlock);
+    sem_destroy(testsem);
+    sem_destroy(donesem);
+
 	return 0;
 }
 
@@ -140,10 +148,10 @@ int rwtest4(int nargs, char **args) {
 
     rwlock = rwlock_create("rwlock");
     if (rwlock == NULL) {
-        panic("rwt3: error creating rwlock\n");
+        panic("rwt4: error creating rwlock\n");
     }
 
-    secprintf(SECRET, "Should panic...", "rwt3");
+    secprintf(SECRET, "Should panic...", "rwt4");
     rwlock_release_write(rwlock);
 
 	/* Should not get here on success. */
@@ -160,10 +168,10 @@ int rwtest5(int nargs, char **args)
 
     rwlock = rwlock_create("rwlock");
     if (rwlock == NULL) {
-        panic("rwt3: error creating rwlock\n");
+        panic("rwt5: error creating rwlock\n");
     }
 
-    secprintf(SECRET, "Should panic...", "rwt3");
+    secprintf(SECRET, "Should panic...", "rwt5");
 
     rwlock_acquire_write(rwlock);
     rwlock_destroy(rwlock);
