@@ -157,10 +157,10 @@ struct rwlock {
     struct cv *rwlock_wcv;
     struct lock *rwlock_lk;
     struct lock *rwlock_wlk;
-    int rwlock_numreaders;
-	int rwlock_numreaders_wait;
     int rwlock_wlocked;
-    int rwlock_writer_flag;
+    int rwlock_numreaders;
+    int rwlock_rwaiting;
+    int rwlock_wwaiting;
     // add what you need here
     // (don't forget to mark things volatile as needed)
 };
