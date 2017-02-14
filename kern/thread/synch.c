@@ -409,7 +409,7 @@ rwlock_acquire_read(struct rwlock *rwlock)
 
     lock_acquire(rwlock->rwlock_lk);
     rwlock->rwlock_rwaiting++;
-	while (rwlock->rwlock_wlocked || rwlock->rwlock_wwaiting > 0) {
+    if (rwlock->rwlock_wlocked || rwlock->rwlock_wwaiting > 0) {
         cv_wait(rwlock->rwlock_cv, rwlock->rwlock_lk);
     }
     rwlock->rwlock_rwaiting--;
@@ -425,12 +425,14 @@ rwlock_release_read(struct rwlock *rwlock)
 
     lock_acquire(rwlock->rwlock_lk);
     rwlock->rwlock_numreaders -= 1;
-    if (rwlock->rwlock_numreaders == 0 && rwlock->rwlock_wwaiting == 0) {
-        cv_signal(rwlock->rwlock_cv, rwlock->rwlock_lk);
-    } else if (rwlock->rwlock_wwaiting > 0) {
-       	lock_acquire(rwlock->rwlock_wlk);
-	 	cv_signal(rwlock->rwlock_wcv, rwlock->rwlock_wlk);
-		lock_release(rwlock->rwlock_wlk);
+    if (rwlock->rwlock_numreaders == 0) {
+        if (rwlock->rwlock_wwaiting > 0) {
+            lock_acquire(rwlock->rwlock_wlk);
+            cv_signal(rwlock->rwlock_wcv, rwlock->rwlock_wlk);
+            lock_release(rwlock->rwlock_wlk);
+        } else {
+            cv_broadcast(rwlock->rwlock_cv, rwlock->rwlock_lk);
+        }
     }
     lock_release(rwlock->rwlock_lk);
 }
@@ -442,11 +444,8 @@ rwlock_acquire_write(struct rwlock *rwlock)
 
     lock_acquire(rwlock->rwlock_wlk);
     rwlock->rwlock_wwaiting += 1;
-	while (rwlock->rwlock_wlocked) {
+	while (rwlock->rwlock_wlocked || rwlock->rwlock_numreaders > 0) {
 		cv_wait(rwlock->rwlock_wcv, rwlock->rwlock_wlk);
-    }
-    while (rwlock->rwlock_numreaders > 0) {
-        cv_wait(rwlock->rwlock_wcv, rwlock->rwlock_wlk);
     }
     rwlock->rwlock_wwaiting -= 1;
     rwlock->rwlock_wlocked = 1;
