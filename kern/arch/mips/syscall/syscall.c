@@ -111,7 +111,7 @@ syscall(struct trapframe *tf)
 
         case SYS_write:
         err = (ssize_t)sys_write(tf->tf_a0,
-                                 (userptr_t)tf->tf_a1,
+                                 (const_userptr_t)tf->tf_a1,
                                  tf->tf_a2);
 
         if (err != 0) {
