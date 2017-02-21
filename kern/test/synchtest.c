@@ -248,34 +248,6 @@ fail2:
 	return;
 }
 
-static
-void
-locktestthread2(void *junk, unsigned long num)
-{
-    	(void)junk;
-        
-	//first thread acquire lock
-    	if(num == 0){
-        	lock_acquire(testlock);
-    	}
-    	else{
-            	//test lock do i hold
-        	if(lock_do_i_hold(testlock)){
-            		goto fail;
-        	}
-            	//make sure release panics based on thread matching
-            	lock_release(testlock);
-    	}
-
-    	V(donesem);
-    	return;
-
-fail:
-    	failif(true);
-    	V(donesem);
-    	return;
-}
-
 int
 locktest(int nargs, char **args)
 {
@@ -378,6 +350,26 @@ locktest3(int nargs, char **args) {
 	return 0;
 }
 
+/*
+ * Used by both lt4 and lt5 below. Simply acquires a lock in a separate
+ * thread. Uses a semaphore as a barrier to make sure it gets the lock before
+ * the driver completes.
+ */
+
+static
+void
+locktestacquirer(void * junk, unsigned long num)
+{
+  (void)junk;
+        (void)num;
+
+  lock_acquire(testlock);
+  V(donesem);
+
+        return;
+}
+
+
 int 
 locktest4(int nargs, char **args) {
     (void) nargs;
@@ -398,6 +390,11 @@ locktest4(int nargs, char **args) {
         lock_destroy(testlock);
 		panic("lt4: sem_create failed\n");
 	}
+
+    result = thread_fork("lt4", NULL, locktestacquirer, NULL, 0);
+    if (result) {
+        panic("lt4: thread_fork failed: %s\n", strerror(result));
+    }
 
 	P(donesem);
 	secprintf(SECRET, "Should panic...", "lt4");
