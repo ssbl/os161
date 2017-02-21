@@ -47,12 +47,21 @@
 #include <proc.h>
 #include <current.h>
 #include <addrspace.h>
+#include <kern/fcntl.h>
+#include <fs.h>
 #include <vnode.h>
+
+#include "filetable.h"
 
 /*
  * The process for the kernel; this holds all the kernel-only threads.
  */
 struct proc *kproc;
+
+/*
+ * Has the console been initialized for the user?
+ */
+bool console_init = false;
 
 /*
  * Create a proc structure.
@@ -61,6 +70,8 @@ static
 struct proc *
 proc_create(const char *name)
 {
+	int result;
+	unsigned zero = 0, one = 1, two = 2;
 	struct proc *proc;
 
 	proc = kmalloc(sizeof(*proc));
@@ -81,6 +92,47 @@ proc_create(const char *name)
 
 	/* VFS fields */
 	proc->p_cwd = NULL;
+
+	/* filetable */
+	proc->p_filetable = file_entryarray_create();
+	if (proc->p_filetable == NULL) {
+		kfree(proc->p_name);
+		kfree(proc);
+		spinlock_cleanup(&proc->p_lock);
+		return NULL;
+	}
+
+	if (kproc == NULL) {
+		/* creating kernel process, no need to initialize console */
+		return proc;
+	}
+
+	result = file_entryarray_add(proc->p_filetable, NULL, &zero);
+	if (result) {
+		file_entryarray_destroy(proc->p_filetable);
+		kfree(proc->p_name);
+		kfree(proc);
+		spinlock_cleanup(&proc->p_lock);
+		return NULL;
+	}
+
+	result = file_entryarray_add(proc->p_filetable, NULL, &one);
+	if (result) {
+		file_entryarray_destroy(proc->p_filetable);
+		kfree(proc->p_name);
+		kfree(proc);
+		spinlock_cleanup(&proc->p_lock);
+		return NULL;
+	}
+
+	result = file_entryarray_add(proc->p_filetable, NULL, &two);
+	if (result) {
+		file_entryarray_destroy(proc->p_filetable);
+		kfree(proc->p_name);
+		kfree(proc);
+		spinlock_cleanup(&proc->p_lock);
+		return NULL;
+	}
 
 	return proc;
 }

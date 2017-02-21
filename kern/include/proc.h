@@ -30,6 +30,8 @@
 #ifndef _PROC_H_
 #define _PROC_H_
 
+#include <filetable.h>
+
 /*
  * Definition of a process.
  *
@@ -71,6 +73,7 @@ struct proc {
 	struct vnode *p_cwd;		/* current working directory */
 
 	/* add more material here as needed */
+	struct file_entryarray *p_filetable;
 };
 
 /* This is the process structure for the kernel and for kernel-only threads. */
