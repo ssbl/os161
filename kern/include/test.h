@@ -158,7 +158,7 @@ void whalemating_cleanup(void);
 void male(uint32_t);
 void female(uint32_t);
 void matchmaker(uint32_t);
- 
+
 /*
  * stoplight.c.
  */

@@ -298,6 +298,13 @@ locktest(int nargs, char **args)
 	return 0;
 }
 
+/*
+ * Note that the following tests that panic on success do minimal cleanup
+ * afterward. This is to avoid causing a panic that could be unintentiontally
+ * considered a success signal by test161. As a result, they leak memory,
+ * don't destroy synchronization primitives, etc.
+ */
+
 int
 locktest2(int nargs, char **args) {
 	(void)nargs;
@@ -318,9 +325,9 @@ locktest2(int nargs, char **args) {
 
 	success(TEST161_FAIL, SECRET, "lt2");
 
-	lock_destroy(testlock);
-	testlock = NULL;
+	/* Don't do anything that could panic. */
 
+	testlock = NULL;
 	return 0;
 }
     
@@ -345,8 +352,9 @@ locktest3(int nargs, char **args) {
 
 	success(TEST161_FAIL, SECRET, "lt3");
 
-	testlock = NULL;
+	/* Don't do anything that could panic. */
 
+	testlock = NULL;
 	return 0;
 }
 
@@ -370,31 +378,31 @@ locktestacquirer(void * junk, unsigned long num)
 }
 
 
-int 
+int
 locktest4(int nargs, char **args) {
-    (void) nargs;
-    (void) args;
+  (void) nargs;
+  (void) args;
 
 	int result;
 
-    kprintf_n("Starting lt4...\n");
-    kprintf_n("(This test panics on success!)\n");
+  kprintf_n("Starting lt4...\n");
+  kprintf_n("(This test panics on success!)\n");
 
-    testlock = lock_create("testlock");
-    if(testlock == NULL) {
-        panic("lt4: lock_create failed\n");
-    }
+  testlock = lock_create("testlock");
+  if (testlock == NULL) {
+	 panic("lt4: lock_create failed\n");
+  }
 
-    donesem = sem_create("donesem", 0);
-    if (donesem == NULL) {
-        lock_destroy(testlock);
-		panic("lt4: sem_create failed\n");
+  donesem = sem_create("donesem", 0);
+  if (donesem == NULL) {
+	 lock_destroy(testlock);
+	 panic("lt4: sem_create failed\n");
+  }
+
+	result = thread_fork("lt4", NULL, locktestacquirer, NULL, 0);
+	if (result) {
+		panic("lt4: thread_fork failed: %s\n", strerror(result));
 	}
-
-    result = thread_fork("lt4", NULL, locktestacquirer, NULL, 0);
-    if (result) {
-        panic("lt4: thread_fork failed: %s\n", strerror(result));
-    }
 
 	P(donesem);
 	secprintf(SECRET, "Should panic...", "lt4");
@@ -445,9 +453,9 @@ locktest5(int nargs, char **args) {
 
   success(TEST161_FAIL, SECRET, "lt5");
 
-    	/* Don't do anything that could panic. */
-	
-        testlock = NULL;
+	/* Don't do anything that could panic. */
+
+	testlock = NULL;
   donesem = NULL;
   return 0;
 }

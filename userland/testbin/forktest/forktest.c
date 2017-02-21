@@ -220,7 +220,6 @@ test(int nowait)
 	nprintf(".");
 	write(fd, "D", 1);
 	depth++;
-	putchar('D');
 	if (depth != 4) {
 		warnx("depth %d, should be 4", depth);
 	}
