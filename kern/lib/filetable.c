@@ -65,7 +65,7 @@ struct vnode *
 getconsolevnode()
 {
 	struct vnode* f_node;
-	int result = vfs_open((char*)"con:", O_RDWR, 0644, &f_node);
+	int result = vfs_open((char*)"con:", O_RDWR, 0664, &f_node);
     if (result) {
         return NULL;
     }
@@ -103,7 +103,7 @@ stdin_entry(struct vnode* console_vnode)
 	}
 
 	stdin->f_offset = 0;
-	stdin->f_mode = O_WRONLY;
+	stdin->f_mode = O_RDONLY;
 
 	return stdin;
 }
@@ -137,7 +137,7 @@ stdout_entry(struct vnode* console_vnode)
 	}
 
 	stdout->f_offset = 0;
-	stdout->f_mode = O_RDONLY;
+	stdout->f_mode = O_WRONLY;
 
 	return stdout;
 }

@@ -58,17 +58,17 @@ sys_write(int fd, const_userptr_t user_buf, size_t buflen)
 
 	/* get vnode from filetable */
 	fentry = file_entryarray_get(curproc->p_filetable, fd);
+	vnode = fentry->f_node;
 	if (fentry->f_mode == O_RDONLY) {
 		kfree(kbuffer);
 		return EBADF;
 	}
 
-	vnode = fentry->f_node;
-
 	/* do the write */
 	result = VOP_WRITE(vnode, &uio);
 	if (result) {
 		kfree(kbuffer);
+        kprintf("write error: %s\n", strerror(result));
 		return result;
 	}
 

@@ -70,8 +70,6 @@ static
 struct proc *
 proc_create(const char *name)
 {
-	int result;
-	unsigned zero = 0, one = 1, two = 2;
     struct file_entry *stdin_vnode=NULL;
 	struct file_entry *stdout_vnode=NULL;
 	struct proc *proc;
@@ -123,32 +121,34 @@ proc_create(const char *name)
 		console_init=1;
     }
 
-	result = file_entryarray_add(proc->p_filetable, stdin_vnode, &zero);
-	if (result) {
-		file_entryarray_destroy(proc->p_filetable);
-		kfree(proc->p_name);
-		kfree(proc);
-		spinlock_cleanup(&proc->p_lock);
-		return NULL;
-	}
+    file_entryarray_setsize(proc->p_filetable, 3);
 
-	result = file_entryarray_add(proc->p_filetable, stdout_vnode, &one);
-	if (result) {
-		file_entryarray_destroy(proc->p_filetable);
-		kfree(proc->p_name);
-		kfree(proc);
-		spinlock_cleanup(&proc->p_lock);
-		return NULL;
-	}
+	file_entryarray_set(proc->p_filetable, 0, stdin_vnode);
+	/* if (result) {
+	 * 	file_entryarray_destroy(proc->p_filetable);
+	 * 	kfree(proc->p_name);
+	 * 	kfree(proc);
+	 * 	spinlock_cleanup(&proc->p_lock);
+	 * 	return NULL;
+	 * } */
 
-	result = file_entryarray_add(proc->p_filetable, stdout_vnode, &two);
-	if (result) {
-		file_entryarray_destroy(proc->p_filetable);
-		kfree(proc->p_name);
-		kfree(proc);
-		spinlock_cleanup(&proc->p_lock);
-		return NULL;
-	}
+	file_entryarray_set(proc->p_filetable, 1, stdout_vnode);
+	/* if (result) {
+	 * 	file_entryarray_destroy(proc->p_filetable);
+	 * 	kfree(proc->p_name);
+	 * 	kfree(proc);
+	 * 	spinlock_cleanup(&proc->p_lock);
+	 * 	return NULL;
+	 * } */
+
+	file_entryarray_set(proc->p_filetable, 2, stdout_vnode);
+	/* if (result) {
+	 * 	file_entryarray_destroy(proc->p_filetable);
+	 * 	kfree(proc->p_name);
+	 * 	kfree(proc);
+	 * 	spinlock_cleanup(&proc->p_lock);
+	 * 	return NULL;
+	 * } */
 
 	return proc;
 }
