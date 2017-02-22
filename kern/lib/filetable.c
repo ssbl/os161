@@ -60,6 +60,9 @@ file_entry_destroy(struct file_entry *fentry)
 	kfree(fentry);
 }
 
+/*
+ * should be called only when the first user process is initialized.
+ */
 struct file_entry *
 stdin(void)
 {
@@ -72,11 +75,11 @@ stdin(void)
 		return NULL;
 	}
 
-	result = vfs_getroot("con0", &stdin->f_node);
-	if (result) {
-		kfree(stdin);
-		return NULL;
-	}
+    result = vfs_open("con:", O_RDONLY, 0644, &stdin->f_node);
+    if (result) {
+        kfree(stdin);
+        return NULL;
+    }
 
 	lock = lock_create("stdin lock");
 	if (lock == NULL) {
@@ -90,6 +93,9 @@ stdin(void)
 	return stdin;
 }
 
+/*
+ * should be called only when the first user process is initialized.
+ */
 struct file_entry *
 stdout(void)
 {
@@ -102,11 +108,11 @@ stdout(void)
 		return NULL;
 	}
 
-	result = vfs_getroot("con0", &stdout->f_node);
-	if (result) {
-		kfree(stdout);
-		return NULL;
-	}
+    result = vfs_open("con:", O_WRONLY, 0644, &stdout->f_node);
+    if (result) {
+        kfree(stdout);
+        return NULL;
+    }
 
 	lock = lock_create("stdout lock");
 	if (lock == NULL) {

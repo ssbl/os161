@@ -72,6 +72,7 @@ proc_create(const char *name)
 {
 	int result;
 	unsigned zero = 0, one = 1, two = 2;
+    struct vnode *stdin, *stdout;
 	struct proc *proc;
 
 	proc = kmalloc(sizeof(*proc));
@@ -97,17 +98,28 @@ proc_create(const char *name)
 	proc->p_filetable = file_entryarray_create();
 	if (proc->p_filetable == NULL) {
 		kfree(proc->p_name);
-		kfree(proc);
 		spinlock_cleanup(&proc->p_lock);
+		kfree(proc);
 		return NULL;
 	}
 
 	if (kproc == NULL) {
 		/* creating kernel process, no need to initialize console */
 		return proc;
-	}
+	} else if (!console_init) {
+        kprintf("initializing console\n");
+        stdin = stdin();
+        stdout = stdout();
 
-	result = file_entryarray_add(proc->p_filetable, NULL, &zero);
+        if (stdin == NULL || stdout == NULL) {
+            kfree(proc->p_name);
+            spinlock_cleanup(&proc->p_lock);
+            kfree(proc);
+            panic("error initializing console\n");
+        }
+    }
+
+	result = file_entryarray_add(proc->p_filetable, stdin, &zero);
 	if (result) {
 		file_entryarray_destroy(proc->p_filetable);
 		kfree(proc->p_name);
@@ -116,7 +128,7 @@ proc_create(const char *name)
 		return NULL;
 	}
 
-	result = file_entryarray_add(proc->p_filetable, NULL, &one);
+	result = file_entryarray_add(proc->p_filetable, stdout, &one);
 	if (result) {
 		file_entryarray_destroy(proc->p_filetable);
 		kfree(proc->p_name);
@@ -125,7 +137,7 @@ proc_create(const char *name)
 		return NULL;
 	}
 
-	result = file_entryarray_add(proc->p_filetable, NULL, &two);
+	result = file_entryarray_add(proc->p_filetable, stdout, &two);
 	if (result) {
 		file_entryarray_destroy(proc->p_filetable);
 		kfree(proc->p_name);
