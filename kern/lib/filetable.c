@@ -60,29 +60,44 @@ file_entry_destroy(struct file_entry *fentry)
 	kfree(fentry);
 }
 
+
+struct vnode * 
+getconsolevnode()
+{
+	struct vnode* f_node;
+	int result = vfs_open((char*)"con:", O_RDWR, 0644, &f_node);
+    if (result) {
+        return NULL;
+    }
+	return f_node;
+}
+
 /*
  * should be called only when the first user process is initialized.
  */
 struct file_entry *
-stdin(void)
+stdin_entry(struct vnode* console_vnode)
 {
-	int result;
+	//int result;
+	//char* consolefile= "con:";
 	struct file_entry *stdin;
 	struct lock *lock;
 
-	stdin = kmalloc(sizeof(stdin));
-	if (stdin == NULL) {
+	if(console_vnode==NULL) {
 		return NULL;
 	}
 
-    result = vfs_open("con:", O_RDONLY, 0644, &stdin->f_node);
-    if (result) {
-        kfree(stdin);
-        return NULL;
-    }
+	stdin = kmalloc(sizeof(stdin));
+	if (stdin == NULL) {
+		kprintf("kmalloc fail\n");
+		return NULL;
+	}
 
+	stdin->f_node=console_vnode;
+	
 	lock = lock_create("stdin lock");
 	if (lock == NULL) {
+		kprintf("lock fail\n");
 		kfree(stdin);
 		return NULL;
 	}
@@ -97,24 +112,25 @@ stdin(void)
  * should be called only when the first user process is initialized.
  */
 struct file_entry *
-stdout(void)
+stdout_entry(struct vnode* console_vnode)
 {
-	int result;
+	//int result;
+	//char* consolefile = "con:";
 	struct file_entry *stdout;
 	struct lock *lock;
+
+	if(console_vnode==NULL) {
+		return NULL;
+	}
 
 	stdout = kmalloc(sizeof(stdout));
 	if (stdout == NULL) {
 		return NULL;
 	}
 
-    result = vfs_open("con:", O_WRONLY, 0644, &stdout->f_node);
-    if (result) {
-        kfree(stdout);
-        return NULL;
-    }
+	stdout->f_node=console_vnode;
 
-	lock = lock_create("stdout lock");
+   	lock = lock_create("stdout lock");
 	if (lock == NULL) {
 		kfree(stdout);
 		return NULL;

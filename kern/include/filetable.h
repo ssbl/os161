@@ -24,7 +24,8 @@ struct file_entry *file_entry_create(const char *name, int openflags,
 									 mode_t mode);
 void file_entry_destroy(struct file_entry *fentry);
 
-struct file_entry *stdin(void);
-struct file_entry *stdout(void);
+struct vnode * getconsolevnode(void);
+struct file_entry *stdin_entry(struct vnode*);
+struct file_entry *stdout_entry(struct vnode*);
 
 #endif  /* _FILETABLE_H_ */

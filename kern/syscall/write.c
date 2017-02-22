@@ -57,13 +57,6 @@ sys_write(int fd, const_userptr_t user_buf, size_t buflen)
 	uio_kinit(&iov, &uio, kbuffer, buflen, 0, UIO_WRITE);
 
 	/* get vnode from filetable */
-	if (fd <= 2) {
-		kbuffer[buflen] = 0;
-		kprintf((char *)kbuffer);
-		kfree(kbuffer);
-		return buflen;
-	}
-
 	fentry = file_entryarray_get(curproc->p_filetable, fd);
 	if (fentry->f_mode == O_RDONLY) {
 		kfree(kbuffer);
