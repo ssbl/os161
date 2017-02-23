@@ -70,8 +70,9 @@ static
 struct proc *
 proc_create(const char *name)
 {
-    struct file_entry *stdin_vnode=NULL;
-	struct file_entry *stdout_vnode=NULL;
+    int result;
+    struct file_entry *stdin=NULL;
+	struct file_entry *stdout=NULL;
 	struct proc *proc;
 	struct vnode *consolevnode;
 
@@ -107,48 +108,33 @@ proc_create(const char *name)
 		/* creating kernel process, no need to initialize console */
 		return proc;
 	} else if (!console_init) {
-        kprintf("initializing console\n");
+        kprintf("proc_create: initializing console\n");
         consolevnode=getconsolevnode();
-		stdin_vnode = stdin_entry(consolevnode);
-        stdout_vnode = stdout_entry(consolevnode);
+		stdin = stdin_entry(consolevnode);
+        stdout = stdout_entry(consolevnode);
 
-        if (stdin_vnode == NULL || stdout_vnode == NULL) {
+        if (stdin == NULL || stdout == NULL) {
             kfree(proc->p_name);
             spinlock_cleanup(&proc->p_lock);
             kfree(proc);
-            panic("error initializing console\n");
+            panic("proc_create: error initializing console\n");
         }
-		console_init=1;
+		console_init = true;
     }
 
-    file_entryarray_setsize(proc->p_filetable, 3);
+    result = file_entryarray_setsize(proc->p_filetable, 3);
+    if (result) {
+        file_entryarray_destroy(proc->p_filetable);
+        kfree(proc->p_name);
+        spinlock_cleanup(&proc->p_lock);
+        kfree(proc);
+        return NULL;
+    }
 
-	file_entryarray_set(proc->p_filetable, 0, stdin_vnode);
-	/* if (result) {
-	 * 	file_entryarray_destroy(proc->p_filetable);
-	 * 	kfree(proc->p_name);
-	 * 	kfree(proc);
-	 * 	spinlock_cleanup(&proc->p_lock);
-	 * 	return NULL;
-	 * } */
-
-	file_entryarray_set(proc->p_filetable, 1, stdout_vnode);
-	/* if (result) {
-	 * 	file_entryarray_destroy(proc->p_filetable);
-	 * 	kfree(proc->p_name);
-	 * 	kfree(proc);
-	 * 	spinlock_cleanup(&proc->p_lock);
-	 * 	return NULL;
-	 * } */
-
-	file_entryarray_set(proc->p_filetable, 2, stdout_vnode);
-	/* if (result) {
-	 * 	file_entryarray_destroy(proc->p_filetable);
-	 * 	kfree(proc->p_name);
-	 * 	kfree(proc);
-	 * 	spinlock_cleanup(&proc->p_lock);
-	 * 	return NULL;
-	 * } */
+    /* these calls don't return an error */
+	file_entryarray_set(proc->p_filetable, 0, stdin);
+	file_entryarray_set(proc->p_filetable, 1, stdout);
+	file_entryarray_set(proc->p_filetable, 2, stdout); /* actually stderr */
 
 	return proc;
 }

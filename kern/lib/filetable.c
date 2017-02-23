@@ -78,8 +78,6 @@ getconsolevnode()
 struct file_entry *
 stdin_entry(struct vnode* console_vnode)
 {
-	//int result;
-	//char* consolefile= "con:";
 	struct file_entry *stdin;
 	struct lock *lock;
 
@@ -114,8 +112,6 @@ stdin_entry(struct vnode* console_vnode)
 struct file_entry *
 stdout_entry(struct vnode* console_vnode)
 {
-	//int result;
-	//char* consolefile = "con:";
 	struct file_entry *stdout;
 	struct lock *lock;
 
