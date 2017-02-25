@@ -59,9 +59,10 @@
 struct proc *kproc;
 
 /*
- * Has the console been initialized for the user?
+ * Console-related state.
  */
-bool console_init = false;
+bool console_init = false;      /* Is the console initialized? */
+struct vnode *console_vnode;    /* The vnode for the console   */
 
 /*
  * Create a proc structure.
@@ -71,10 +72,9 @@ struct proc *
 proc_create(const char *name)
 {
     int result;
-    struct file_entry *stdin=NULL;
-	struct file_entry *stdout=NULL;
+    struct file_entry *stdin = NULL;
+	struct file_entry *stdout = NULL;
 	struct proc *proc;
-	struct vnode *consolevnode;
 
 	proc = kmalloc(sizeof(*proc));
 	if (proc == NULL) {
@@ -109,9 +109,9 @@ proc_create(const char *name)
 		return proc;
 	} else if (!console_init) {
         kprintf("proc_create: initializing console\n");
-        consolevnode=getconsolevnode();
-		stdin = stdin_entry(consolevnode);
-        stdout = stdout_entry(consolevnode);
+        console_vnode = getconsolevnode();
+		stdin = stdin_entry(console_vnode);
+        stdout = stdout_entry(console_vnode);
 
         if (stdin == NULL || stdout == NULL) {
             kfree(proc->p_name);
