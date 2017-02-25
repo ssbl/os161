@@ -20,6 +20,7 @@ sys_write(int fd, const_userptr_t user_buf, size_t buflen)
     struct uio uio;
     struct iovec iov;
     struct vnode *vnode;
+    struct file_entryarray *filetable;
     struct file_entry *fentry;
 
     /* check file descriptor and buffer pointer */
@@ -47,20 +48,25 @@ sys_write(int fd, const_userptr_t user_buf, size_t buflen)
     uio_kinit(&iov, &uio, kbuffer, buflen, 0, UIO_WRITE);
 
     /* check if fd has an entry in the filetable */
-    max_fds = file_entryarray_num(curproc->p_filetable);
+    spinlock_acquire(&curproc->p_lock);
+    filetable = curproc->p_filetable;
+    spinlock_release(&curproc->p_lock);
+
+    max_fds = file_entryarray_num(filetable);
     if (max_fds < 3 || fd >= max_fds) {
         kfree(kbuffer);
         return EBADF;
     }
 
     /* get fd's entry from filetable */
-    fentry = file_entryarray_get(curproc->p_filetable, fd);
+    fentry = file_entryarray_get(filetable, fd);
     if (fentry == NULL || fentry->f_mode == O_RDONLY) {
         kfree(kbuffer);
         return EBADF;
     }
 
     vnode = fentry->f_node;
+    uio.uio_offset = fentry->f_offset;
 
     /* do the write */
 write:
@@ -71,7 +77,7 @@ write:
     }
 
     /* make sure we wrote everything */
-    if (buflen != uio.uio_offset) {
+    if (buflen != (uio.uio_offset - fentry->f_offset)) {
         goto write;
     }
 
