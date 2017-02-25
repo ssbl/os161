@@ -61,8 +61,9 @@ struct proc *kproc;
 /*
  * Console-related state.
  */
-bool console_init = false;      /* Is the console initialized? */
-struct vnode *console_vnode;    /* The vnode for the console   */
+bool console_init = false;         /* Is the console initialized? */
+struct vnode *console_vnode;       /* The vnode for the console */
+struct file_entry *stdin, *stdout; /* entries for stdin, stdout */
 
 /*
  * Create a proc structure.
@@ -72,8 +73,6 @@ struct proc *
 proc_create(const char *name)
 {
     int result;
-    struct file_entry *stdin = NULL;
-	struct file_entry *stdout = NULL;
 	struct proc *proc;
 
 	proc = kmalloc(sizeof(*proc));
