@@ -11,11 +11,9 @@
 
 
 struct file_entry *
-file_entry_create(const char *name, int openflags, mode_t mode)
+file_entry_create(const char *name, int openflags, struct vnode *vnode)
 {
 	KASSERT(name != NULL);
-
-	int result;
 
 	struct file_entry *fentry = kmalloc(sizeof(*fentry));
 	if (fentry == NULL) {
@@ -28,23 +26,18 @@ file_entry_create(const char *name, int openflags, mode_t mode)
 		return NULL;
 	}
 
-	result = vfs_open(fentry->f_name, openflags, mode, &fentry->f_node);
-	if (result) {
-		kfree(fentry->f_name);
-		kfree(fentry);
-		return NULL;
-	}
+    fentry->f_node = vnode;
 
-	lock_create("file_entry lock");
+	fentry->f_lk = lock_create("file_entry lock");
 	if (fentry->f_lk == NULL) {
 		kfree(fentry->f_name);
-		vfs_close(fentry->f_node);
 		kfree(fentry);
 		return NULL;
 	}
 
 	fentry->f_offset = 0;
-	fentry->f_mode = mode;
+	fentry->f_flags = openflags;
+    fentry->f_mode = openflags & O_ACCMODE;
 
 	return fentry;
 }
@@ -102,6 +95,7 @@ stdin_entry(struct vnode* console_vnode)
 
 	stdin->f_offset = 0;
 	stdin->f_mode = O_RDONLY;
+    stdin->f_flags = O_RDONLY;
 
 	return stdin;
 }
@@ -134,6 +128,7 @@ stdout_entry(struct vnode* console_vnode)
 
 	stdout->f_offset = 0;
 	stdout->f_mode = O_WRONLY;
+    stdout->f_flags = O_WRONLY;
 
 	return stdout;
 }

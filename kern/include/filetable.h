@@ -5,6 +5,7 @@
 #include <synch.h>
 #include <vnode.h>
 
+#define FILENAME_MAXLEN 64
 #ifndef FILETABLE_INLINE
 #define FILETABLE_INLINE INLINE
 #endif
@@ -14,17 +15,18 @@ struct file_entry {
 	struct vnode *f_node;
 	struct lock *f_lk;
 	off_t f_offset;
-	int f_mode;
+    mode_t f_mode;
+    int f_flags;
 };
 DECLARRAY(file_entry, FILETABLE_INLINE);
 
 DEFARRAY(file_entry, FILETABLE_INLINE);
 
 struct file_entry *file_entry_create(const char *name, int openflags,
-									 mode_t mode);
+                                     struct vnode *vnode);
 void file_entry_destroy(struct file_entry *fentry);
 
-struct vnode * getconsolevnode(void);
+struct vnode *getconsolevnode(void);
 struct file_entry *stdin_entry(struct vnode*);
 struct file_entry *stdout_entry(struct vnode*);
 
