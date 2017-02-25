@@ -15,17 +15,7 @@
 ssize_t
 sys_write(int fd, const_userptr_t user_buf, size_t buflen)
 {
-	int result;
-
-	/*
-	 * We need a vnode and a uio to call the underlying
-	 * vop_write. We'll get the vnode from the filetable, but I'm not
-	 * sure about the uio. In any case, we want to read from user_buf;
-	 * there's a function copyin for this (in copyinout.h and
-	 * vm/copyinout.c). This data can be loaded into a uio struct
-	 * (uiomove in uio.h), which we can use.
-	 */
-
+	int result, max_fds;
 	char *kbuffer;
 	struct uio uio;
 	struct iovec iov;
@@ -41,7 +31,7 @@ sys_write(int fd, const_userptr_t user_buf, size_t buflen)
 	}
 
 	/* initialize buffer */
-	kbuffer = kmalloc(buflen * sizeof(char) + 1);
+	kbuffer = kmalloc(buflen * sizeof(char));
 	if (kbuffer == NULL) {
 		return ENOSPC;
 	}
@@ -56,19 +46,26 @@ sys_write(int fd, const_userptr_t user_buf, size_t buflen)
 	/* create a uio for vop_write */
 	uio_kinit(&iov, &uio, kbuffer, buflen, 0, UIO_WRITE);
 
-	/* get vnode from filetable */
+	/* check if fd has an entry in the filetable */
+    max_fds = file_entryarray_num(curproc->p_filetable);
+    if (max_fds < 3 || fd >= max_fds) {
+        kfree(kbuffer);
+        return EBADF;
+    }
+
+    /* get fd's entry from filetable */
 	fentry = file_entryarray_get(curproc->p_filetable, fd);
-	vnode = fentry->f_node;
-	if (fentry->f_mode == O_RDONLY) {
+	if (fentry == NULL || fentry->f_mode == O_RDONLY) {
 		kfree(kbuffer);
 		return EBADF;
 	}
+
+	vnode = fentry->f_node;
 
 	/* do the write */
 	result = VOP_WRITE(vnode, &uio);
 	if (result) {
 		kfree(kbuffer);
-        kprintf("write error: %s\n", strerror(result));
 		return result;
 	}
 
