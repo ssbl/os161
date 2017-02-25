@@ -49,7 +49,7 @@ file_entry_destroy(struct file_entry *fentry)
 
 	kfree(fentry->f_name);
 	vfs_close(fentry->f_node);
-	lock_destroy(fentry->f_lk);
+    lock_destroy(fentry->f_lk);
 	kfree(fentry);
 }
 
@@ -72,13 +72,12 @@ struct file_entry *
 stdin_entry(struct vnode* console_vnode)
 {
 	struct file_entry *stdin;
-	struct lock *lock;
 
 	if(console_vnode==NULL) {
 		return NULL;
 	}
 
-	stdin = kmalloc(sizeof(stdin));
+	stdin = kmalloc(sizeof(*stdin));
 	if (stdin == NULL) {
 		kprintf("kmalloc fail\n");
 		return NULL;
@@ -86,8 +85,8 @@ stdin_entry(struct vnode* console_vnode)
 
 	stdin->f_node=console_vnode;
 	
-	lock = lock_create("stdin lock");
-	if (lock == NULL) {
+	stdin->f_lk = lock_create("stdin lock");
+	if (stdin->f_lk == NULL) {
 		kprintf("lock fail\n");
 		kfree(stdin);
 		return NULL;
@@ -107,21 +106,20 @@ struct file_entry *
 stdout_entry(struct vnode* console_vnode)
 {
 	struct file_entry *stdout;
-	struct lock *lock;
 
 	if(console_vnode==NULL) {
 		return NULL;
 	}
 
-	stdout = kmalloc(sizeof(stdout));
+	stdout = kmalloc(sizeof(*stdout));
 	if (stdout == NULL) {
 		return NULL;
 	}
 
 	stdout->f_node=console_vnode;
 
-   	lock = lock_create("stdout lock");
-	if (lock == NULL) {
+    stdout->f_lk = lock_create("stdout lock");
+	if (stdout->f_lk == NULL) {
 		kfree(stdout);
 		return NULL;
 	}

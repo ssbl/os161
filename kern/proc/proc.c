@@ -61,9 +61,9 @@ struct proc *kproc;
 /*
  * Console-related state.
  */
-bool console_init = false;         /* Is the console initialized? */
-struct vnode *console_vnode;       /* The vnode for the console */
-struct file_entry *stdin, *stdout; /* entries for stdin, stdout */
+bool console_init = false;      /* Is the console initialized? */
+struct vnode *console_vnode;    /* The vnode for the console */
+struct file_entry *stdin, *stdout, *stderr; /* entries for stdin, stdout */
 
 /*
  * Create a proc structure.
@@ -109,10 +109,11 @@ proc_create(const char *name)
 	} else if (!console_init) {
         kprintf("proc_create: initializing console\n");
         console_vnode = getconsolevnode();
-		stdin = stdin_entry(console_vnode);
-        stdout = stdout_entry(console_vnode);
+		stdin = file_entry_create("con:", O_RDONLY, console_vnode);
+        stdout = file_entry_create("con:", O_WRONLY, console_vnode);
+        stderr = file_entry_create("con:", O_WRONLY, console_vnode);
 
-        if (stdin == NULL || stdout == NULL) {
+        if (stdin == NULL || stdout == NULL || stderr == NULL) { /* leak */
             kfree(proc->p_name);
             spinlock_cleanup(&proc->p_lock);
             kfree(proc);
@@ -133,7 +134,7 @@ proc_create(const char *name)
     /* these calls don't return an error */
 	file_entryarray_set(proc->p_filetable, 0, stdin);
 	file_entryarray_set(proc->p_filetable, 1, stdout);
-	file_entryarray_set(proc->p_filetable, 2, stdout); /* actually stderr */
+	file_entryarray_set(proc->p_filetable, 2, stderr);
 
 	return proc;
 }
