@@ -392,6 +392,7 @@ file      syscall/write.c
 file      syscall/open.c
 file      syscall/close.c
 file      syscall/read.c
+file      syscall/lseek.c
 
 #
 # Startup and initialization
