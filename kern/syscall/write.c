@@ -53,7 +53,7 @@ sys_write(int fd, const_userptr_t user_buf, size_t buflen)
     spinlock_release(&curproc->p_lock);
 
     max_fds = file_entryarray_num(filetable);
-    if (max_fds < 3 || fd >= max_fds) {
+    if (fd >= max_fds) {
         kfree(kbuffer);
         return EBADF;
     }

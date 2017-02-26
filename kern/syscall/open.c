@@ -61,7 +61,7 @@ sys_open(const_userptr_t filename, int flags)
     spinlock_release(&curproc->p_lock);
 
     max_fds = file_entryarray_num(filetable);
-    for (i = 3; i < max_fds; i++) {
+    for (i = 0; i < max_fds; i++) {
         if (file_entryarray_get(filetable, i) == NULL) {
             break;
         }
