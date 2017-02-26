@@ -82,7 +82,7 @@ write:
     }
 
     /* update offset */
-    fentry->f_offset = buflen;
+    fentry->f_offset += buflen;
 
     return buflen;
 }
