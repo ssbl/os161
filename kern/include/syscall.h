@@ -59,6 +59,7 @@ __DEAD void enter_new_process(int argc, userptr_t argv, userptr_t env,
 int sys_reboot(int code);
 int sys_open(const_userptr_t filename, int flags);
 int sys_close(int fd);
+ssize_t sys_read(int fd, userptr_t user_buf, size_t buflen);
 ssize_t sys_write(int fd, const_userptr_t user_buf, size_t buflen);
 int sys___time(userptr_t user_seconds, userptr_t user_nanoseconds);
 

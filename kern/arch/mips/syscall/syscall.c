@@ -126,6 +126,16 @@ syscall(struct trapframe *tf)
         }
         break;
 
+        case SYS_read:
+        err = (ssize_t)sys_read(tf->tf_a0,
+                                (userptr_t)tf->tf_a1,
+                                tf->tf_a2);
+        if (err >= 0) {
+            retval = err;
+            err = 0;
+        }
+        break;
+
         case SYS_write:
         err = (ssize_t)sys_write(tf->tf_a0,
                                  (const_userptr_t)tf->tf_a1,
