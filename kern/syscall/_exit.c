@@ -3,6 +3,7 @@
 #include <current.h>
 #include <kern/fcntl.h>
 #include <kern/errno.h>
+#include <kern/wait.h>
 #include <lib.h>
 #include <proc.h>
 #include <thread.h>

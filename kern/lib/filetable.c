@@ -250,3 +250,32 @@ filetable_add(struct filetable *ft, struct file_entry *fentry)
     ft->ft_openfds += 1;
     return i;
 }
+
+struct filetable *
+filetable_copy(struct filetable *src)
+{
+    KASSERT(src != NULL);
+
+    int i;
+    struct filetable *dest = NULL;
+    struct file_entry *fentry = NULL;
+
+    dest = kmalloc(sizeof(*dest));
+    if (dest == NULL) {
+        return NULL;
+    }
+    dest->ft_maxfd = -1;
+    dest->ft_openfds = 0;
+
+    for (i = 0; i <= src->ft_maxfd; i++) {
+        fentry = filetable_get(src, i);
+        if (fentry != NULL) {
+            filetable_set(dest, i, fentry);
+        }
+    }
+
+    KASSERT(src->ft_maxfd == dest->ft_maxfd);
+    KASSERT(src->ft_openfds == dest->ft_openfds);
+
+    return dest;
+}

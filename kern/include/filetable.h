@@ -18,6 +18,7 @@ struct file_entry {
 	off_t f_offset;
     mode_t f_mode;
     int f_flags;
+    /* TODO: add a refcount here, since one entry could be shared */
 };
 DECLARRAY(file_entry, FILETABLE_INLINE);
 
@@ -41,6 +42,7 @@ void file_entry_destroy(struct file_entry *fentry);
 
 struct vnode *getconsolevnode(void);
 struct filetable *filetable_create(void);
+struct filetable *filetable_copy(struct filetable *src);
 struct file_entry *filetable_get(struct filetable *ft, int fd);
 int filetable_set(struct filetable *ft, int fd, struct file_entry *fentry);
 int filetable_remove(struct filetable *ft, int fd);
