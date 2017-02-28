@@ -9,6 +9,8 @@
 #define FILETABLE_INLINE
 #include "filetable.h"
 
+struct vnode *console_vnode = NULL;
+
 
 struct file_entry *
 file_entry_create(const char *name, int openflags, struct vnode *vnode)
@@ -53,7 +55,6 @@ file_entry_destroy(struct file_entry *fentry)
 	kfree(fentry);
 }
 
-
 struct vnode * 
 getconsolevnode()
 {
@@ -65,68 +66,149 @@ getconsolevnode()
 	return f_node;
 }
 
-/*
- * should be called only when the first user process is initialized.
- */
-struct file_entry *
-stdin_entry(struct vnode* console_vnode)
+struct filetable *
+filetable_create()
 {
-	struct file_entry *stdin;
+    int ret;
+    struct filetable *ft = NULL;
+    struct file_entryarray *fdarray = NULL;
 
-	if(console_vnode==NULL) {
-		return NULL;
-	}
+    ft = kmalloc(sizeof(*ft));
+    if (ft == NULL) {
+        return NULL;
+    }
 
-	stdin = kmalloc(sizeof(*stdin));
-	if (stdin == NULL) {
-		kprintf("kmalloc fail\n");
-		return NULL;
-	}
+    fdarray = file_entryarray_create();
+    if (fdarray == NULL) {
+        kfree(ft);
+        return NULL;
+    }
 
-	stdin->f_node=console_vnode;
-	
-	stdin->f_lk = lock_create("stdin lock");
-	if (stdin->f_lk == NULL) {
-		kprintf("lock fail\n");
-		kfree(stdin);
-		return NULL;
-	}
+    if (console_vnode == NULL) {
+        console_vnode = getconsolevnode();
+    }
 
-	stdin->f_offset = 0;
-	stdin->f_mode = O_RDONLY;
-    stdin->f_flags = O_RDONLY;
+    ret = file_entryarray_setsize(ft->ft_fdarray, 3);
+    if (ret) {
+        file_entryarray_destroy(ft->ft_fdarray);
+        kfree(ft);
+        return NULL;
+    }
 
-	return stdin;
+    stdin = file_entry_create("<stdin>", O_RDONLY, console_vnode);
+    stdout = file_entry_create("<stdout>", O_WRONLY, console_vnode);
+    stderr = file_entry_create("<stderr>", O_WRONLY, console_vnode);
+
+    file_entryarray_set(ft->ft_fdarray, 0, stdin);
+    file_entryarray_set(ft->ft_fdarray, 1, stdout);
+    file_entryarray_set(ft->ft_fdarray, 2, stderr);
+
+    ft->ft_maxfd = 2;
+    ft->ft_openfds = 3;
+
+    return ft;
 }
 
-/*
- * should be called only when the first user process is initialized.
- */
 struct file_entry *
-stdout_entry(struct vnode* console_vnode)
+filetable_get(struct filetable *ft, int fd)
 {
-	struct file_entry *stdout;
+    KASSERT(ft != NULL);
+    KASSERT(fd >= 0 && fd < MAXFDS);
+    KASSERT(fd <= ft->ft_maxfd);
 
-	if(console_vnode==NULL) {
-		return NULL;
-	}
+    return file_entryarray_get(ft->ft_fdarray, fd);
+}
 
-	stdout = kmalloc(sizeof(*stdout));
-	if (stdout == NULL) {
-		return NULL;
-	}
+int
+filetable_set(struct filetable *ft, int fd, struct file_entry *fentry)
+{
+    KASSERT(ft != NULL);
+    KASSERT(fd >= 0 && fd < MAXFDS);
+    KASSERT(fentry != NULL);
 
-	stdout->f_node=console_vnode;
+    int ret;
 
-    stdout->f_lk = lock_create("stdout lock");
-	if (stdout->f_lk == NULL) {
-		kfree(stdout);
-		return NULL;
-	}
+    if (fd > ft->ft_maxfd) {
+        ret = file_entryarray_setsize(ft->ft_fdarray, fd + 1);
+        if (ret) {
+            return ret;
+        }
+        ft->ft_maxfd = fd;
+    }
 
-	stdout->f_offset = 0;
-	stdout->f_mode = O_WRONLY;
-    stdout->f_flags = O_WRONLY;
+    file_entryarray_set(ft->ft_fdarray, fd, fentry);
+    ft->ft_openfds += 1;
 
-	return stdout;
+    return 0;
+}
+
+int
+filetable_remove(struct filetable *ft, int fd)
+{
+    KASSERT(ft != NULL);
+    KASSERT(fd >= 0 && fd < MAXFDS);
+    KASSERT(fd <= ft->ft_maxfd);
+
+    int i;
+    struct file_entry *fentry = NULL;
+
+    fentry = file_entryarray_get(ft->ft_fdarray, fd);
+    if (fentry == NULL) {
+        return 0;               /* already removed, do nothing */
+    }
+
+    /* remove this entry */
+    file_entry_destroy(fentry);
+    fentry = NULL;
+
+    /* update maxfd, openfds */
+    if (fd == ft->ft_maxfd) {
+        for (i = fd - 1; i >= 0; i--) {
+            fentry = file_entryarray_get(ft->ft_fdarray, i);
+            if (fentry != NULL) {
+                ft->ft_maxfd = i;
+                break;
+            }
+        }
+    }
+    ft->ft_openfds -= 1;
+
+    return 0;
+}
+
+
+/*
+ * Add an entry to the first available spot in the table.
+ * Return the index of this new entry.
+ */
+int
+filetable_add(struct filetable *ft, struct file_entry *fentry)
+{
+    KASSERT(ft != NULL);
+    KASSERT(fentry != NULL);
+
+    int i, ret, arr_size;
+    struct file_entry *f;
+
+    for (i = 0; i < ft->ft_maxfd; i++) {
+        f = file_entryarray_get(ft->ft_fdarray, i);
+        if (f == NULL) {
+            file_entryarray_set(ft->ft_fdarray, i);
+            break;
+        }
+    }
+
+    if (i == ft->ft_maxfd) {
+        i += 1;
+        arr_size = ft->ft_maxfd + 1;
+        ret = file_entryarray_setsize(ft->ft_fdarray, arr_size + 1);
+        if (ret) {
+            return -1;
+        }
+        file_entryarray_set(ft->ft_fdarray, i, fentry);
+    }
+
+    ft->ft_maxfd = i > ft->ft->maxfd ? i : ft->ft->ft_maxfd;
+    ft->ft_openfds += 1;
+    return i;
 }
