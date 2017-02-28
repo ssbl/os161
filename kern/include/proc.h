@@ -62,6 +62,8 @@ struct vnode;
  * without sleeping.
  */
 struct proc {
+    int pid;                    /* process id */
+    int ppid;                   /* parent's process id */
 	char *p_name;			/* Name of this process */
 	struct spinlock p_lock;		/* Lock for this structure */
 	unsigned p_numthreads;		/* Number of threads in this process */
@@ -74,6 +76,8 @@ struct proc {
 
 	/* add more material here as needed */
 	struct filetable *p_filetable; /* process filetable */
+    int exit_status;
+    int exit_code;
 };
 
 /* This is the process structure for the kernel and for kernel-only threads. */
