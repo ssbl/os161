@@ -63,6 +63,7 @@ off_t sys_lseek(int fd, off_t pos, int whence);
 ssize_t sys_read(int fd, userptr_t user_buf, size_t buflen);
 ssize_t sys_write(int fd, const_userptr_t user_buf, size_t buflen);
 int sys_dup2(int oldfd, int newfd);
+pid_t sys_getpid(void);
 void sys__exit(int exitcode);
 int sys___time(userptr_t user_seconds, userptr_t user_nanoseconds);
 

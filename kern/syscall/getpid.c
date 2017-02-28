@@ -9,14 +9,14 @@
 #include <syscall.h>
 
 
-void
-sys__exit(int exitcode)
+pid_t
+sys_getpid(void)
 {
-    int code = _MKWAIT_EXIT(exitcode);
+    pid_t ret;
 
     spinlock_acquire(&curproc->p_lock);
-    curproc->p_exitcode = code;
+    ret = curproc->p_exitcode;
     spinlock_release(&curproc->p_lock);
 
-    thread_exit();
+    return ret;
 }
