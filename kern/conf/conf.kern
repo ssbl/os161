@@ -393,6 +393,7 @@ file      syscall/open.c
 file      syscall/close.c
 file      syscall/read.c
 file      syscall/lseek.c
+file      syscall/dup2.c
 
 #
 # Startup and initialization

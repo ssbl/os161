@@ -15,10 +15,10 @@
 int
 sys_dup2(int oldfd, int newfd)
 {
-    int result, max_fds;
+    int result;
     struct file_entry *fentry_newfd = NULL;
     struct file_entry *fentry_oldfd = NULL;
-    struct file_entryarray *filetable = NULL;
+    struct filetable *filetable = NULL;
 
     if (oldfd < 0 || newfd < 0) {
         return EBADF;
@@ -27,34 +27,24 @@ sys_dup2(int oldfd, int newfd)
         return newfd;
     }
 
-    spinlock_acquire(&curproc->p_filetable);
+    spinlock_acquire(&curproc->p_lock);
     filetable = curproc->p_filetable;
-    spinlock_release(&curproc->p_filetable);
+    spinlock_release(&curproc->p_lock);
 
-    max_fds = file_entryarray_num(filetable);
-    if (oldfd >= max_fds || newfd >= MAXFDS) {
-        return EBADF;           /* also check if they exceed 64 */
-    }
-
-    fentry_oldfd = file_entryarray_get(filetable, oldfd);
-    if (fentry == NULL) {
+    fentry_oldfd = filetable_get(filetable, oldfd);
+    if (fentry_oldfd == NULL) {
         return EBADF;
     }
 
-    if (newfd >= max_fds) {
-        result = file_entryarray_setsize(filetable, newfd);
-        if (result) {
-            return ENOSPC;
-        }
-    } else {
-        fentry_newfd = file_entryarray_get(filetable, newfd);
-        if (fentry_newfd != NULL) { /* fd points to an open file, close it */
-            file_entry_destroy(fentry_newfd);
-            fentry_newfd = NULL;
-        }
+    fentry_newfd = filetable_get(filetable, newfd);
+    if (fentry_newfd != NULL) {
+        filetable_remove(filetable, newfd);
     }
 
-    file_entryarray_set(filetable, newfd, fentry_oldfd);
+    result = filetable_set(filetable, newfd, fentry_oldfd);
+    if (result) {
+        return result;
+    }
 
     return newfd;
 }
