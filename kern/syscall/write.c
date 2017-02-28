@@ -15,12 +15,12 @@
 ssize_t
 sys_write(int fd, const_userptr_t user_buf, size_t buflen)
 {
-    int result, max_fds;
+    int result;
     char *kbuffer;
     struct uio uio;
     struct iovec iov;
     struct vnode *vnode;
-    struct file_entryarray *filetable;
+    struct filetable *filetable;
     struct file_entry *fentry;
 
     /* check file descriptor and buffer pointer */
@@ -52,14 +52,14 @@ sys_write(int fd, const_userptr_t user_buf, size_t buflen)
     filetable = curproc->p_filetable;
     spinlock_release(&curproc->p_lock);
 
-    max_fds = file_entryarray_num(filetable);
-    if (fd >= max_fds) {
-        kfree(kbuffer);
-        return EBADF;
-    }
+    /* max_fds = file_entryarray_num(filetable);
+     * if (fd >= max_fds) {
+     *     kfree(kbuffer);
+     *     return EBADF;
+     * } */
 
     /* get fd's entry from filetable */
-    fentry = file_entryarray_get(filetable, fd);
+    fentry = filetable_get(filetable, fd);
     if (fentry == NULL || fentry->f_mode == O_RDONLY) {
         kfree(kbuffer);
         return EBADF;

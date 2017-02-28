@@ -59,20 +59,12 @@
 struct proc *kproc;
 
 /*
- * Console-related state.
- */
-bool console_init = false;      /* Is the console initialized? */
-struct vnode *console_vnode;    /* The vnode for the console */
-struct file_entry *stdin, *stdout, *stderr; /* entries for stdin, stdout */
-
-/*
  * Create a proc structure.
  */
 static
 struct proc *
 proc_create(const char *name)
 {
-    int result;
 	struct proc *proc;
 
 	proc = kmalloc(sizeof(*proc));
@@ -95,46 +87,13 @@ proc_create(const char *name)
 	proc->p_cwd = NULL;
 
 	/* filetable */
-	proc->p_filetable = file_entryarray_create();
+	proc->p_filetable = filetable_create();
 	if (proc->p_filetable == NULL) {
 		kfree(proc->p_name);
 		spinlock_cleanup(&proc->p_lock);
 		kfree(proc);
 		return NULL;
 	}
-
-	if (kproc == NULL) {
-		/* creating kernel process, no need to initialize console */
-		return proc;
-	} else if (!console_init) {
-        kprintf("proc_create: initializing console\n");
-        console_vnode = getconsolevnode();
-		stdin = file_entry_create("con:", O_RDONLY, console_vnode);
-        stdout = file_entry_create("con:", O_WRONLY, console_vnode);
-        stderr = file_entry_create("con:", O_WRONLY, console_vnode);
-
-        if (stdin == NULL || stdout == NULL || stderr == NULL) { /* leak */
-            kfree(proc->p_name);
-            spinlock_cleanup(&proc->p_lock);
-            kfree(proc);
-            panic("proc_create: error initializing console\n");
-        }
-		console_init = true;
-    }
-
-    result = file_entryarray_setsize(proc->p_filetable, 3);
-    if (result) {
-        file_entryarray_destroy(proc->p_filetable);
-        kfree(proc->p_name);
-        spinlock_cleanup(&proc->p_lock);
-        kfree(proc);
-        return NULL;
-    }
-
-    /* these calls don't return an error */
-	file_entryarray_set(proc->p_filetable, 0, stdin);
-	file_entryarray_set(proc->p_filetable, 1, stdout);
-	file_entryarray_set(proc->p_filetable, 2, stderr);
 
 	return proc;
 }

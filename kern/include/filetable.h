@@ -40,10 +40,11 @@ struct file_entry *file_entry_create(const char *name, int openflags,
 void file_entry_destroy(struct file_entry *fentry);
 
 struct vnode *getconsolevnode(void);
-struct filetable *filetable_create();
+struct filetable *filetable_create(void);
 struct file_entry *filetable_get(struct filetable *ft, int fd);
 int filetable_set(struct filetable *ft, int fd, struct file_entry *fentry);
 int filetable_remove(struct filetable *ft, int fd);
 int filetable_add(struct filetable *ft, struct file_entry *fentry);
+int filetable_checkfd(struct filetable *ft, int fd);
 
 #endif  /* _FILETABLE_H_ */

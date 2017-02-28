@@ -1,12 +1,13 @@
 #include <types.h>
 #include <lib.h>
 #include <kern/fcntl.h>
+#include <kern/errno.h>
 #include <synch.h>
 #include <vm.h>
 #include <vfs.h>
 #include <vnode.h>
+#include <proc.h>
 
-#define FILETABLE_INLINE
 #include "filetable.h"
 
 struct vnode *console_vnode = NULL;
@@ -66,12 +67,24 @@ getconsolevnode()
 	return f_node;
 }
 
+int
+filetable_checkfd(struct filetable *ft, int fd)
+{
+    if (fd < 0 || fd >= MAXFDS) {
+        return -1;
+    } else if (fd > ft->ft_maxfd) {
+        return -1;
+    }
+    return 0;
+}
+
 struct filetable *
-filetable_create()
+filetable_create(void)
 {
     int ret;
     struct filetable *ft = NULL;
     struct file_entryarray *fdarray = NULL;
+    struct file_entry *stdin, *stdout, *stderr;
 
     ft = kmalloc(sizeof(*ft));
     if (ft == NULL) {
@@ -82,6 +95,12 @@ filetable_create()
     if (fdarray == NULL) {
         kfree(ft);
         return NULL;
+    }
+
+    if (kproc == NULL) {
+        ft->ft_maxfd = -1;
+        ft->ft_openfds = 0;
+        return ft;
     }
 
     if (console_vnode == NULL) {
@@ -113,20 +132,29 @@ struct file_entry *
 filetable_get(struct filetable *ft, int fd)
 {
     KASSERT(ft != NULL);
-    KASSERT(fd >= 0 && fd < MAXFDS);
-    KASSERT(fd <= ft->ft_maxfd);
+
+    if (filetable_checkfd(ft, fd) != 0) {
+        return NULL;
+    }
 
     return file_entryarray_get(ft->ft_fdarray, fd);
 }
 
+/*
+ * assumes that fd points to an empty spot in the table.
+ * if that spot isn't free, we get a leak.
+ */
 int
 filetable_set(struct filetable *ft, int fd, struct file_entry *fentry)
 {
     KASSERT(ft != NULL);
-    KASSERT(fd >= 0 && fd < MAXFDS);
     KASSERT(fentry != NULL);
 
     int ret;
+
+    if (fd < 0 || fd >= MAXFDS) {
+        return EBADF;
+    }
 
     if (fd > ft->ft_maxfd) {
         ret = file_entryarray_setsize(ft->ft_fdarray, fd + 1);
@@ -146,11 +174,13 @@ int
 filetable_remove(struct filetable *ft, int fd)
 {
     KASSERT(ft != NULL);
-    KASSERT(fd >= 0 && fd < MAXFDS);
-    KASSERT(fd <= ft->ft_maxfd);
 
     int i;
     struct file_entry *fentry = NULL;
+
+    if (filetable_checkfd(ft, fd) != 0) {
+        return EBADF;
+    }
 
     fentry = file_entryarray_get(ft->ft_fdarray, fd);
     if (fentry == NULL) {
@@ -190,25 +220,33 @@ filetable_add(struct filetable *ft, struct file_entry *fentry)
     int i, ret, arr_size;
     struct file_entry *f;
 
+    if (ft->ft_maxfd == -1) {
+        return filetable_set(ft, 0, fentry);
+    }
+
     for (i = 0; i < ft->ft_maxfd; i++) {
         f = file_entryarray_get(ft->ft_fdarray, i);
         if (f == NULL) {
-            file_entryarray_set(ft->ft_fdarray, i);
+            file_entryarray_set(ft->ft_fdarray, i, fentry);
             break;
         }
     }
 
     if (i == ft->ft_maxfd) {
-        i += 1;
+        if (i == MAXFDS - 1) {  /* filetable full */
+            return EMFILE;
+        }
+
+        i += 1;                 /* otherwise, add it to the end */
         arr_size = ft->ft_maxfd + 1;
         ret = file_entryarray_setsize(ft->ft_fdarray, arr_size + 1);
         if (ret) {
-            return -1;
+            return ENOSPC;
         }
         file_entryarray_set(ft->ft_fdarray, i, fentry);
     }
 
-    ft->ft_maxfd = i > ft->ft->maxfd ? i : ft->ft->ft_maxfd;
+    ft->ft_maxfd = i > ft->ft_maxfd ? i : ft->ft_maxfd;
     ft->ft_openfds += 1;
     return i;
 }

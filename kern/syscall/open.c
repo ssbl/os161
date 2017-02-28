@@ -15,12 +15,11 @@
 int
 sys_open(const_userptr_t filename, int flags)
 {
-    int i, result, max_fds;
+    int result;
     size_t buflen;
-    unsigned index_ret;
     char *kfilename;
     struct vnode *vnode;
-    struct file_entryarray *filetable;
+    struct filetable *filetable;
     struct file_entry *fentry;
 
     if (filename == NULL) {
@@ -40,7 +39,7 @@ sys_open(const_userptr_t filename, int flags)
         kprintf("open: copyinstr failed\n");
         return result;
     }
-    
+
     result = vfs_open(kfilename, flags, 0664, &vnode);
     if (result) {
         kfree(kfilename);
@@ -60,22 +59,8 @@ sys_open(const_userptr_t filename, int flags)
     filetable = curproc->p_filetable;
     spinlock_release(&curproc->p_lock);
 
-    max_fds = file_entryarray_num(filetable);
-    for (i = 0; i < max_fds; i++) {
-        if (file_entryarray_get(filetable, i) == NULL) {
-            break;
-        }
-    }
-    if (i == max_fds) {
-        result = file_entryarray_add(filetable, fentry, &index_ret);
-        if (result) {
-            kprintf("open: couldn't add entry to filetable\n");
-            return EMFILE;
-        }
-    } else {
-        file_entryarray_set(filetable, i, fentry);
-    }
+    result = filetable_add(filetable, fentry);
 
     kfree(kfilename);
-    return i;
+    return result;
 }
