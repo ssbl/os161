@@ -18,7 +18,7 @@ struct file_entry {
 	off_t f_offset;
     mode_t f_mode;
     int f_flags;
-    /* TODO: add a refcount here, since one entry could be shared */
+    int f_refcount;
 };
 DECLARRAY(file_entry, FILETABLE_INLINE);
 

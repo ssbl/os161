@@ -41,6 +41,7 @@ file_entry_create(const char *name, int openflags, struct vnode *vnode)
 	fentry->f_offset = 0;
 	fentry->f_flags = openflags;
     fentry->f_mode = openflags & O_ACCMODE;
+    fentry->f_refcount = 1;
 
 	return fentry;
 }
@@ -50,10 +51,17 @@ file_entry_destroy(struct file_entry *fentry)
 {
 	KASSERT(fentry != NULL);
 
-	kfree(fentry->f_name);
-	vfs_close(fentry->f_node);
-    lock_destroy(fentry->f_lk);
-	kfree(fentry);
+    if (fentry->f_refcount == 1) {
+        kfree(fentry->f_name);
+        vfs_close(fentry->f_node);
+        lock_destroy(fentry->f_lk);
+        kfree(fentry);
+    } else {
+        KASSERT(fentry->f_refcount > 1);
+        vfs_close(fentry->f_node);
+        fentry->f_refcount -= 1;
+        fentry = NULL;
+    }
 }
 
 struct vnode * 
