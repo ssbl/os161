@@ -15,7 +15,7 @@ sys_getpid(void)
     pid_t ret;
 
     spinlock_acquire(&curproc->p_lock);
-    ret = curproc->p_exitcode;
+    ret = curproc->p_pid;
     spinlock_release(&curproc->p_lock);
 
     return ret;

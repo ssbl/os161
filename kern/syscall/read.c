@@ -52,6 +52,7 @@ sys_read(int fd, userptr_t user_buf, size_t buflen)
         return EBADF;
     }
 
+    lock_acquire(fentry->f_lk);
     vnode = fentry->f_node;
     uio.uio_offset = fentry->f_offset;
 
@@ -59,6 +60,7 @@ sys_read(int fd, userptr_t user_buf, size_t buflen)
     result = VOP_READ(vnode, &uio);
     if (result) {
         kfree(kbuffer);
+        lock_release(fentry->f_lk);
         return result;
     }
 
@@ -66,12 +68,14 @@ sys_read(int fd, userptr_t user_buf, size_t buflen)
     result = copyout(kbuffer, user_buf, buflen);
     if (result) {
         kfree(kbuffer);
+        lock_release(fentry->f_lk);
         return result;
     }
 
     /* store return value, update offset */
     result = uio.uio_offset - fentry->f_offset;
     fentry->f_offset += uio.uio_offset;
+    lock_release(fentry->f_lk);
 
     return result;
 }

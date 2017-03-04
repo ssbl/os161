@@ -58,6 +58,8 @@
  */
 struct proc *kproc;
 
+struct proctable *proctable;
+
 /*
  * Create a proc structure.
  */
@@ -66,6 +68,10 @@ struct proc *
 proc_create(const char *name)
 {
 	struct proc *proc;
+
+    if (kproc != NULL && proctable == NULL) {
+        proctable_create();
+    }
 
 	proc = kmalloc(sizeof(*proc));
 	if (proc == NULL) {
@@ -195,6 +201,30 @@ proc_bootstrap(void)
 	if (kproc == NULL) {
 		panic("proc_create for kproc failed\n");
 	}
+}
+
+void
+proctable_create(void)
+{
+    int result;
+
+    proctable = kmalloc(sizeof(*proctable));
+    if (proctable == NULL) {
+        panic("could not initialize process table\n");
+    }
+
+    proctable->pt_procs = procarray_create();
+    if (proctable->pt_procs == NULL) {
+        panic("could not initialize process table\n");
+    }
+
+    result = procarray_setsize(proctable->pt_procs, 2);
+    if (result) {
+        panic("could not initialize process table\n");
+    }
+
+    procarray_set(proctable->pt_procs, 1, kproc);
+    proctable->pt_numprocs = 1;
 }
 
 /*

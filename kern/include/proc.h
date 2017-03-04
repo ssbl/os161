@@ -30,7 +30,6 @@
 #ifndef _PROC_H_
 #define _PROC_H_
 
-#include <filetable.h>
 
 /*
  * Definition of a process.
@@ -38,6 +37,8 @@
  * Note: curproc is defined by <current.h>.
  */
 
+#include <array.h>
+#include <filetable.h>
 #include <spinlock.h>
 
 struct addrspace;
@@ -62,8 +63,8 @@ struct vnode;
  * without sleeping.
  */
 struct proc {
-    int p_pid;                    /* process id */
-    int p_ppid;                   /* parent's process id */
+    pid_t p_pid;                    /* process id */
+    pid_t p_ppid;                   /* parent's process id */
 	char *p_name;			/* Name of this process */
 	struct spinlock p_lock;		/* Lock for this structure */
 	unsigned p_numthreads;		/* Number of threads in this process */
@@ -78,6 +79,17 @@ struct proc {
 	struct filetable *p_filetable; /* process filetable */
     int p_exitstatus;
     int p_exitcode;
+};
+
+DECLARRAY_BYTYPE(procarray, struct proc, ARRAYINLINE);
+DEFARRAY_BYTYPE(procarray, struct proc, ARRAYINLINE);
+
+/*
+ * process table
+ */
+struct proctable {
+    struct procarray *pt_procs;
+    int pt_numprocs;
 };
 
 /* This is the process structure for the kernel and for kernel-only threads. */
@@ -104,5 +116,7 @@ struct addrspace *proc_getas(void);
 /* Change the address space of the current process, and return the old one. */
 struct addrspace *proc_setas(struct addrspace *);
 
+/* Create process table */
+void proctable_create(void);
 
 #endif /* _PROC_H_ */

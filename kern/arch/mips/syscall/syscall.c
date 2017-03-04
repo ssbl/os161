@@ -123,7 +123,7 @@ syscall(struct trapframe *tf)
             err = 0;
         }
         break;
-        
+
         case SYS_close:
         err = sys_close(tf->tf_a0);
         if (err == 0) {
@@ -131,7 +131,7 @@ syscall(struct trapframe *tf)
             err = 0;
         }
         break;
-        
+
         case SYS_read:
         err = (ssize_t)sys_read(tf->tf_a0,
                                 (userptr_t)tf->tf_a1,
@@ -141,7 +141,7 @@ syscall(struct trapframe *tf)
             err = 0;
         }
         break;
-    
+
         case SYS_write:
         err = (ssize_t)sys_write(tf->tf_a0,
                                  (const_userptr_t)tf->tf_a1,
@@ -151,16 +151,16 @@ syscall(struct trapframe *tf)
             err = 0;
         }
         break;
-    
+
     case SYS_lseek:
-        kprintf("a0 = %d, a1 = %d, a2 = %d, a3 = %d\n",
-                tf->tf_a0, tf->tf_a1, tf->tf_a2, tf->tf_a3);
+        /* kprintf("a0 = %d, a1 = %d, a2 = %d, a3 = %d\n",
+         *         tf->tf_a0, tf->tf_a1, tf->tf_a2, tf->tf_a3); */
         stackbuf = kmalloc(sizeof(uint32_t) + 1); /* 32-bit data + delim */
         if (stackbuf == NULL) {
             err = ENOSPC;
             break;
         }
-    
+
         retval = copyin((const_userptr_t)(tf->tf_sp + 16),
                         stackbuf,
                         5);
@@ -169,17 +169,17 @@ syscall(struct trapframe *tf)
             kfree(stackbuf);
             break;
         }
-    
+
         stackptr = stackbuf + 3;
-    
+
         /* for (err = 0; err < 5; err++) {
          *     kprintf("%d\n", stackptr[err]);
          * } */
-    
+
         whence = *stackptr;
-        kprintf("whence = %d\n", whence);
+        /* kprintf("whence = %d\n", whence); */
         pos = ((off_t)tf->tf_a2 << 32) + (off_t)tf->tf_a3;
-    
+
         retval64 = (off_t)sys_lseek(tf->tf_a0,
                                pos,
                                whence);
@@ -187,7 +187,7 @@ syscall(struct trapframe *tf)
             tf->tf_v1 = retval64 & 0xffffffff;
             tf->tf_v0 = retval64 >> 32;
             tf->tf_a3 = 0;
-            kprintf("retval = %lld\n", retval64);
+            /* kprintf("retval = %lld\n", retval64); */
             kfree(stackbuf);
             goto advance_ptr;
         } else {
@@ -198,7 +198,7 @@ syscall(struct trapframe *tf)
 
         case SYS__exit:
             err = 0;
-            kprintf("exit not implemented\n");
+            sys__exit(0);
             break;
 
         default:

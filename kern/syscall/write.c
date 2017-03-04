@@ -52,12 +52,6 @@ sys_write(int fd, const_userptr_t user_buf, size_t buflen)
     filetable = curproc->p_filetable;
     spinlock_release(&curproc->p_lock);
 
-    /* max_fds = file_entryarray_num(filetable);
-     * if (fd >= max_fds) {
-     *     kfree(kbuffer);
-     *     return EBADF;
-     * } */
-
     /* get fd's entry from filetable */
     fentry = filetable_get(filetable, fd);
     if (fentry == NULL || fentry->f_mode == O_RDONLY) {
@@ -65,6 +59,7 @@ sys_write(int fd, const_userptr_t user_buf, size_t buflen)
         return EBADF;
     }
 
+    lock_acquire(fentry->f_lk);
     vnode = fentry->f_node;
     uio.uio_offset = fentry->f_offset;
 
@@ -73,6 +68,7 @@ write:
     result = VOP_WRITE(vnode, &uio);
     if (result) {
         kfree(kbuffer);
+        lock_release(fentry->f_lk);
         return result;
     }
 
@@ -83,6 +79,7 @@ write:
 
     /* update offset */
     fentry->f_offset += buflen;
+    lock_release(fentry->f_lk);
 
     return buflen;
 }

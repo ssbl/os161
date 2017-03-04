@@ -51,16 +51,18 @@ file_entry_destroy(struct file_entry *fentry)
 {
 	KASSERT(fentry != NULL);
 
+    lock_acquire(fentry->f_lk);
     if (fentry->f_refcount == 1) {
         kfree(fentry->f_name);
         vfs_close(fentry->f_node);
+        lock_release(fentry->f_lk);
         lock_destroy(fentry->f_lk);
         kfree(fentry);
     } else {
         KASSERT(fentry->f_refcount > 1);
-        vfs_close(fentry->f_node);
         fentry->f_refcount -= 1;
         fentry = NULL;
+        lock_release(fentry->f_lk);
     }
 }
 
