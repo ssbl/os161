@@ -245,7 +245,8 @@ advance_ptr:
  * Thus, you can trash it and do things another way if you prefer.
  */
 void
-enter_forked_process(struct trapframe *tf)
+enter_forked_process(void *tf, long unsigned int unused)
 {
     (void)tf;
+    (void)unused;
 }

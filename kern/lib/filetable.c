@@ -289,3 +289,22 @@ filetable_copy(struct filetable *src)
 
     return dest;
 }
+
+void
+filetable_destroy(struct filetable *ft)
+{
+    KASSERT(ft != NULL);
+
+    int i;
+    struct file_entry *fentry;
+
+    for (i = 0; i < ft->ft_maxfd; i++) {
+        fentry = filetable_get(ft, i);
+        if (fentry != NULL) {
+            filetable_remove(ft, i);
+        }
+    }
+
+    kfree(ft);
+    ft = NULL;
+}

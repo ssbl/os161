@@ -63,7 +63,6 @@ struct proctable *proctable;
 /*
  * Create a proc structure.
  */
-static
 struct proc *
 proc_create(const char *name)
 {
@@ -100,6 +99,9 @@ proc_create(const char *name)
 		kfree(proc);
 		return NULL;
 	}
+
+    /* TODO: set pid of this process here */
+    /* proc->p_pid = ?? */
 
 	return proc;
 }

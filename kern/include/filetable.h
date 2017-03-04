@@ -48,5 +48,6 @@ int filetable_set(struct filetable *ft, int fd, struct file_entry *fentry);
 int filetable_remove(struct filetable *ft, int fd);
 int filetable_add(struct filetable *ft, struct file_entry *fentry);
 int filetable_checkfd(struct filetable *ft, int fd);
+void filetable_destroy(struct filetable *ft);
 
 #endif  /* _FILETABLE_H_ */
