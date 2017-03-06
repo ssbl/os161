@@ -50,7 +50,7 @@
 #include <kern/fcntl.h>
 #include <fs.h>
 #include <vnode.h>
-
+#include <proctable.h>
 #include "filetable.h"
 
 /*

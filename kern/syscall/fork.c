@@ -12,7 +12,7 @@
 #include <filetable.h>
 #include <mips/trapframe.h>
 #include <addrspace.h>
-
+#include <proctable.h>
 
 pid_t
 sys_fork(struct trapframe *tf)
@@ -20,12 +20,14 @@ sys_fork(struct trapframe *tf)
     KASSERT(tf != NULL);
 
     int result;
+	const char ch_proc[]="<child_process>";
     struct proc *newproc;
     struct trapframe *newtf;
     struct addrspace *curas, *newas;
     struct filetable *curft;
+	//struct proctable *pt;	
 
-    newproc = proc_create("<child_process>");
+    newproc = proc_create(ch_proc);
     if (newproc == NULL) {
         return ENOMEM;
     }
@@ -66,6 +68,14 @@ sys_fork(struct trapframe *tf)
         as_destroy(newas);
         kfree(newtf);
         return ENOMEM;
+    }
+
+	newproc->p_pid=proctable_add(proctable,newproc);
+	if(newproc->p_pid==-1) {
+        proc_destroy(newproc);
+        as_destroy(newas);
+        kfree(newtf);
+        return -1;
     }
 
     return thread_fork(newproc->p_name, newproc,

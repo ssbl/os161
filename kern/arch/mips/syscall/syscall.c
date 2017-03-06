@@ -195,7 +195,21 @@ syscall(struct trapframe *tf)
         }
         kfree(stackbuf);
         break;
-		
+
+		case SYS_fork:
+		err=sys_fork(tf);
+		if (err>0) {
+			retval=err;
+			err=0;
+		}
+		break;
+
+		case SYS_getpid:
+		err=sys_getpid();	
+		retval=err;
+		err=0;
+		break;
+
 		case SYS___getcwd:
 	    err = sys___getcwd((userptr_t)tf->tf_a0,
                        tf->tf_a1);

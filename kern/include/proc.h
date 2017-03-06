@@ -81,19 +81,11 @@ struct proc {
     int p_exitcode;
 };
 
-DECLARRAY_BYTYPE(procarray, struct proc, ARRAYINLINE);
-DEFARRAY_BYTYPE(procarray, struct proc, ARRAYINLINE);
-
-/*
- * process table
- */
-struct proctable {
-    struct procarray *pt_procs;
-    int pt_numprocs;
-};
-
 /* This is the process structure for the kernel and for kernel-only threads. */
 extern struct proc *kproc;
+
+/* This is the proctable */
+struct proctable *proctable;
 
 /* Call once during system startup to allocate data structures. */
 void proc_bootstrap(void);
@@ -118,8 +110,5 @@ struct addrspace *proc_getas(void);
 
 /* Change the address space of the current process, and return the old one. */
 struct addrspace *proc_setas(struct addrspace *);
-
-/* Create process table */
-void proctable_create(void);
 
 #endif /* _PROC_H_ */

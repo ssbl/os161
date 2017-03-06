@@ -284,6 +284,7 @@ file      lib/misc.c
 file      lib/time.c
 file      lib/uio.c
 file      lib/filetable.c
+file      lib/proctable.c
 
 defoption noasserts
 
