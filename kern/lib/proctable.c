@@ -101,7 +101,7 @@ proctable_add(struct proctable *pt, struct proc *proc)
 	int ret, arr_size;
     struct proc *p;
 
-    for (i = 0; i < pt->pt_maxpid; i++) {
+    for (i = 1; i < pt->pt_maxpid; i++) {
         p = procarray_get(pt->pt_procs, i);
         if (p == NULL) {
             procarray_set(pt->pt_procs, i, proc);
@@ -125,7 +125,9 @@ proctable_add(struct proctable *pt, struct proc *proc)
 
     pt->pt_maxpid = i > pt->pt_maxpid ? i : pt->pt_maxpid;
     pt->pt_numprocs += 1;
-    return i;
+    proc->p_pid = i;            /* set the pid */
+
+    return 0;
 }
 
 void

@@ -100,8 +100,16 @@ proc_create(const char *name)
 		return NULL;
 	}
 
-    /* TODO: set pid of this process here */
-    /* proc->p_pid = ?? */
+    /* add it to the process table */
+    if (kproc != NULL) {
+        int result = proctable_add(proctable, proc);
+        if (result) {
+            kfree(proc->p_name);
+            spinlock_cleanup(&proc->p_lock);
+            kfree(proc);
+            return NULL;
+        }
+    }
 
 	return proc;
 }
@@ -227,6 +235,7 @@ proctable_create(void)
 
     procarray_set(proctable->pt_procs, 1, kproc);
     proctable->pt_numprocs = 1;
+    proctable->pt_maxpid = 1;
 }
 
 /*

@@ -277,6 +277,7 @@ advance_ptr:
 void
 enter_forked_process(void *tf, long unsigned int unused)
 {
-    (void)tf;
     (void)unused;
+
+    mips_usermode(tf);
 }
