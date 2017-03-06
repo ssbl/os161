@@ -65,6 +65,8 @@ ssize_t sys_write(int fd, const_userptr_t user_buf, size_t buflen);
 int sys_dup2(int oldfd, int newfd);
 pid_t sys_fork(struct trapframe *tf);
 pid_t sys_getpid(void);
+int sys_chdir(const char *pathname);
+int sys___getcwd(userptr_t buf, size_t buflen);
 void sys__exit(int exitcode);
 int sys___time(userptr_t user_seconds, userptr_t user_nanoseconds);
 

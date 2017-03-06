@@ -152,7 +152,7 @@ syscall(struct trapframe *tf)
         }
         break;
 
-    case SYS_lseek:
+    	case SYS_lseek:
         /* kprintf("a0 = %d, a1 = %d, a2 = %d, a3 = %d\n",
          *         tf->tf_a0, tf->tf_a1, tf->tf_a2, tf->tf_a3); */
         stackbuf = kmalloc(sizeof(uint32_t) + 1); /* 32-bit data + delim */
@@ -195,6 +195,22 @@ syscall(struct trapframe *tf)
         }
         kfree(stackbuf);
         break;
+		
+		case SYS___getcwd:
+	    err = sys___getcwd((userptr_t)tf->tf_a0,
+                       tf->tf_a1);
+        if (err>0) {
+			retval=err;
+			err=0;
+		}	
+		break;
+		
+		case SYS_chdir:
+	    err = sys_chdir((const char *)tf->tf_a0);
+		if (err == 0) {
+			retval=err;	
+		}
+		break;
 
         case SYS__exit:
             err = 0;

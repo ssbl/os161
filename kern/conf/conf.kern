@@ -397,6 +397,8 @@ file      syscall/dup2.c
 file      syscall/_exit.c
 file      syscall/getpid.c
 file      syscall/fork.c
+file      syscall/__getcwd.c
+file      syscall/chdir.c
 
 #
 # Startup and initialization
