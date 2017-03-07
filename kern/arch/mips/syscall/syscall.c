@@ -31,11 +31,14 @@
 #include <kern/errno.h>
 #include <kern/syscall.h>
 #include <lib.h>
+#include <cpu.h>
+#include <mips/specialreg.h>
 #include <mips/trapframe.h>
 #include <thread.h>
 #include <current.h>
 #include <syscall.h>
 #include <copyinout.h>
+#include <addrspace.h>
 
 
 /*
@@ -228,7 +231,7 @@ syscall(struct trapframe *tf)
 
         case SYS__exit:
             err = 0;
-            sys__exit(0);
+            sys__exit(0);       /* fix */
             break;
 
         default:
@@ -275,9 +278,12 @@ advance_ptr:
  * Thus, you can trash it and do things another way if you prefer.
  */
 void
-enter_forked_process(void *tf, long unsigned int unused)
+enter_forked_process(void *tf, long unsigned int stackptr)
 {
-    (void)unused;
+    (void)stackptr;
+    struct trapframe *tfptr = tf, *newtf;
 
-    mips_usermode(tf);
+    newtf = (struct trapframe *)((vaddr_t)curthread->t_stack + STACK_SIZE - 1);
+    *newtf = *tfptr;
+    mips_usermode(newtf);
 }

@@ -24,6 +24,7 @@ sys_fork(struct trapframe *tf)
     struct trapframe *newtf;
     struct addrspace *curas, *newas;
     struct filetable *curft;
+    /* vaddr_t stackptr; */
 
     newproc = proc_create("<child>"); /* sets the pid */
     if (newproc == NULL) {
@@ -32,6 +33,7 @@ sys_fork(struct trapframe *tf)
     }
 
     tf->tf_v0 = newproc->p_pid;
+    tf->tf_a3 = 0;
     newproc->p_ppid = sys_getpid();
 
     /* copy trapframe */
@@ -42,8 +44,8 @@ sys_fork(struct trapframe *tf)
         return ENOMEM;
     }
 
+    bzero(newtf, sizeof(*newtf));
     *newtf = *tf;
-    newtf->tf_v0 = 0;
 
     /* copy address space */
     curas = proc_getas();
@@ -56,6 +58,19 @@ sys_fork(struct trapframe *tf)
     }
     newproc->p_addrspace = newas;
 
+    /* define a user stack (ref. runprogram.c) */
+    /* result = as_define_stack(newas, &stackptr);
+     * if (result) {
+     *     kprintf("fork: couldn't create user stack\n");
+     *     proc_destroy(newproc);
+     *     kfree(newtf);
+     *     return result;
+     * } */
+
+    /* newtf->tf_sp = newas->as_stackpbase; */
+    /* kprintf("%d\n", stackptr == newas->as_stackpbase); */
+
+    kprintf("oldtf = %d\n", tf->tf_ra);
     /* copy file table */
     spinlock_acquire(&curproc->p_lock);
     curft = curproc->p_filetable;
