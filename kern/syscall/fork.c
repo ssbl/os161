@@ -58,19 +58,21 @@ sys_fork(struct trapframe *tf)
     }
     newproc->p_addrspace = newas;
 
-    /* define a user stack (ref. runprogram.c) */
-    /* result = as_define_stack(newas, &stackptr);
+    /* proc_setas(newas);
+     * as_activate();
+     * /\* define a user stack (ref. runprogram.c) *\/
+     * result = as_define_stack(newas, &stackptr);
      * if (result) {
      *     kprintf("fork: couldn't create user stack\n");
      *     proc_destroy(newproc);
      *     kfree(newtf);
      *     return result;
-     * } */
+     * }
+     * proc_setas(curas); */
 
     /* newtf->tf_sp = newas->as_stackpbase; */
     /* kprintf("%d\n", stackptr == newas->as_stackpbase); */
 
-    kprintf("oldtf = %d\n", tf->tf_ra);
     /* copy file table */
     spinlock_acquire(&curproc->p_lock);
     curft = curproc->p_filetable;
@@ -86,7 +88,16 @@ sys_fork(struct trapframe *tf)
         return ENOMEM;
     }
 
+    kprintf("epc = %d\n", tf->tf_epc);
+    kprintf("epc = %d\n", newtf->tf_epc);    
     kprintf("created process with pid %d\n", (int)newproc->p_pid);
+    /* kprintf("numprocs = %d\n", proctable->pt_numprocs);
+     * for (int i = 1; i <= proctable->pt_numprocs; i++) {
+     *     struct proc *proc = proctable_get(proctable, i);
+     *     if (proc != NULL) {
+     *         kprintf("found %d (%s)\n", i, proc->p_name);
+     *     }
+     * } */
 
     return thread_fork(newproc->p_name, newproc,
                        enter_forked_process, newtf, 0);

@@ -32,6 +32,7 @@
 #include <kern/syscall.h>
 #include <lib.h>
 #include <cpu.h>
+#include <proc.h>
 #include <mips/specialreg.h>
 #include <mips/trapframe.h>
 #include <thread.h>
@@ -281,9 +282,14 @@ void
 enter_forked_process(void *tf, long unsigned int stackptr)
 {
     (void)stackptr;
-    struct trapframe *tfptr = tf, *newtf;
+    /* (void)tf; */
+    struct trapframe *tfptr = tf, newtf;
 
-    newtf = (struct trapframe *)((vaddr_t)curthread->t_stack + STACK_SIZE - 1);
-    *newtf = *tfptr;
-    mips_usermode(newtf);
+    /* proc_setas(curthread->t_proc->p_addrspace); */
+    as_activate();
+    newtf = *tfptr;
+    tfptr = (struct trapframe *)((vaddr_t)curthread->t_stack + STACK_SIZE) - 1;
+    *tfptr = newtf;
+    kprintf("%d\n", tfptr->tf_epc);
+    mips_usermode(&newtf);
 }

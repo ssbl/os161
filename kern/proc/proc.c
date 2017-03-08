@@ -66,6 +66,8 @@ struct proctable *proctable;
 struct proc *
 proc_create(const char *name)
 {
+    /* (void)name;
+     * char *noname = "asdf"; */
 	struct proc *proc;
 
     if (kproc != NULL && proctable == NULL) {
