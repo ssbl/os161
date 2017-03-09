@@ -284,12 +284,13 @@ enter_forked_process(void *tf, long unsigned int stackptr)
     (void)stackptr;
     /* (void)tf; */
     struct trapframe *tfptr = tf, newtf;
+    /* vaddr_t stacktop; */
 
     /* proc_setas(curthread->t_proc->p_addrspace); */
     as_activate();
+
+    bzero(&newtf, sizeof(newtf));
     newtf = *tfptr;
-    tfptr = (struct trapframe *)((vaddr_t)curthread->t_stack + STACK_SIZE) - 1;
-    *tfptr = newtf;
-    kprintf("%d\n", tfptr->tf_epc);
+    /* go to usermode */
     mips_usermode(&newtf);
 }

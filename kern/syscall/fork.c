@@ -24,7 +24,7 @@ sys_fork(struct trapframe *tf)
     struct trapframe *newtf;
     struct addrspace *curas, *newas;
     struct filetable *curft;
-    /* vaddr_t stackptr; */
+    vaddr_t stackptr;
 
     newproc = proc_create("<child>"); /* sets the pid */
     if (newproc == NULL) {
@@ -32,9 +32,9 @@ sys_fork(struct trapframe *tf)
         return ENOMEM;
     }
 
-    tf->tf_v0 = newproc->p_pid;
-    tf->tf_a3 = 0;
-    newproc->p_ppid = sys_getpid();
+    tf->tf_v0 = newproc->p_pid; /* return value */
+    tf->tf_a3 = 0;              /* signal no error */
+    newproc->p_ppid = sys_getpid(); /* set the parent pid */
 
     /* copy trapframe */
     newtf = kmalloc(sizeof(*newtf));
@@ -44,12 +44,13 @@ sys_fork(struct trapframe *tf)
         return ENOMEM;
     }
 
-    bzero(newtf, sizeof(*newtf));
-    *newtf = *tf;
+    bzero(newtf, sizeof(*newtf)); /* zero out the trapframe */
+    *newtf = *tf;                 /* copy using assignment */
+    newtf->tf_v0 = 0;             /* return value of fork for child */
 
     /* copy address space */
     curas = proc_getas();
-    result = as_copy(curas, &newas);
+    result = as_copy(curas, &newas); /* do the copy */
     if (result) {
         kprintf("fork: couldn't copy addrspace\n");
         proc_destroy(newproc);
@@ -58,24 +59,27 @@ sys_fork(struct trapframe *tf)
     }
     newproc->p_addrspace = newas;
 
-    /* proc_setas(newas);
-     * as_activate();
-     * /\* define a user stack (ref. runprogram.c) *\/
-     * result = as_define_stack(newas, &stackptr);
-     * if (result) {
-     *     kprintf("fork: couldn't create user stack\n");
-     *     proc_destroy(newproc);
-     *     kfree(newtf);
-     *     return result;
-     * }
-     * proc_setas(curas); */
+    /* switch to child's address space */
+    proc_setas(newas);
+    as_activate();
+    /* define a user stack in child's address space (ref. runprogram.c) */
+    result = as_define_stack(newas, &stackptr);
+    if (result) {
+        kprintf("fork: couldn't create user stack\n");
+        proc_destroy(newproc);
+        kfree(newtf);
+        return result;
+    }
+    /* switch back to our address space */
+    proc_setas(curas);
+    as_activate();
 
-    /* newtf->tf_sp = newas->as_stackpbase; */
+    newtf->tf_sp = stackptr;    /* set the stack pointer */
     /* kprintf("%d\n", stackptr == newas->as_stackpbase); */
 
     /* copy file table */
     spinlock_acquire(&curproc->p_lock);
-    curft = curproc->p_filetable;
+    curft = curproc->p_filetable; /* get the paren't filetable */
     spinlock_release(&curproc->p_lock);
 
     filetable_destroy(newproc->p_filetable);
@@ -88,17 +92,22 @@ sys_fork(struct trapframe *tf)
         return ENOMEM;
     }
 
-    kprintf("epc = %d\n", tf->tf_epc);
-    kprintf("epc = %d\n", newtf->tf_epc);    
+    /* kprintf("epc = %d\n", tf->tf_epc);
+     * kprintf("epc = %d\n", newtf->tf_epc);     */
     kprintf("created process with pid %d\n", (int)newproc->p_pid);
-    /* kprintf("numprocs = %d\n", proctable->pt_numprocs);
-     * for (int i = 1; i <= proctable->pt_numprocs; i++) {
-     *     struct proc *proc = proctable_get(proctable, i);
-     *     if (proc != NULL) {
-     *         kprintf("found %d (%s)\n", i, proc->p_name);
-     *     }
-     * } */
+    kprintf("numprocs = %d\n", proctable->pt_numprocs);
+    for (int i = 1; i <= proctable->pt_numprocs; i++) {
+        struct proc *proc = proctable_get(proctable, i);
+        if (proc != NULL) {
+            kprintf("found %d (%s)\n", i, proc->p_name);
+        }
+    }
 
-    return thread_fork(newproc->p_name, newproc,
-                       enter_forked_process, newtf, 0);
+    result = thread_fork(newproc->p_name, newproc,
+                         enter_forked_process, newtf, 0);
+    kprintf("forked %d\n", newproc->p_pid);
+    if (result) {
+        return -1;
+    }
+    return newproc->p_pid;
 }
