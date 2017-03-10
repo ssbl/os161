@@ -54,12 +54,11 @@ file_entry_destroy(struct file_entry *fentry)
     lock_acquire(fentry->f_lk);
     if (fentry->f_refcount == 1) {
         kfree(fentry->f_name);
-        vfs_close(fentry->f_node);
+        /* vfs_close(fentry->f_node); */
         lock_release(fentry->f_lk);
         lock_destroy(fentry->f_lk);
         kfree(fentry);
     } else {
-        KASSERT(fentry->f_refcount > 1);
         fentry->f_refcount -= 1;
         fentry = NULL;
         lock_release(fentry->f_lk);
@@ -279,8 +278,11 @@ filetable_copy(struct filetable *src)
 
     for (i = 0; i <= src->ft_maxfd; i++) {
         fentry = filetable_get(src, i);
+        /* if (fentry)
+         *     kprintf("got %d (%s)\n", i, fentry->f_name); */
         if (fentry != NULL) {
             filetable_set(dest, i, fentry);
+            fentry->f_refcount += 1;
         }
     }
 
@@ -298,7 +300,7 @@ filetable_destroy(struct filetable *ft)
     int i;
     struct file_entry *fentry;
 
-    for (i = 0; i < ft->ft_maxfd; i++) {
+    for (i = 0; i <= ft->ft_maxfd; i++) {
         fentry = filetable_get(ft, i);
         if (fentry != NULL) {
             filetable_remove(ft, i);
