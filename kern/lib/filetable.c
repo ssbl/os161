@@ -60,8 +60,8 @@ file_entry_destroy(struct file_entry *fentry)
         kfree(fentry);
     } else {
         fentry->f_refcount -= 1;
-        fentry = NULL;
         lock_release(fentry->f_lk);
+        /* fentry = NULL; */
     }
 }
 
@@ -166,6 +166,7 @@ filetable_set(struct filetable *ft, int fd, struct file_entry *fentry)
     }
 
     if (fd > ft->ft_maxfd) {
+        /* kprintf("got %d, maxfd is %d\n", fd, ft->ft_maxfd); */
         ret = file_entryarray_setsize(ft->ft_fdarray, fd + 1);
         if (ret) {
             return ret;
@@ -184,7 +185,7 @@ filetable_remove(struct filetable *ft, int fd)
 {
     KASSERT(ft != NULL);
 
-    int i;
+    int i, ret;
     struct file_entry *fentry = NULL;
 
     if (filetable_checkfd(ft, fd) != 0) {
@@ -198,16 +199,20 @@ filetable_remove(struct filetable *ft, int fd)
 
     /* remove this entry */
     file_entry_destroy(fentry);
-    fentry = NULL;
+    /* fentry = NULL; */
 
     /* update maxfd, openfds */
     if (fd == ft->ft_maxfd) {
         for (i = fd - 1; i >= 0; i--) {
             fentry = file_entryarray_get(ft->ft_fdarray, i);
             if (fentry != NULL) {
-                ft->ft_maxfd = i;
                 break;
             }
+        }
+        ft->ft_maxfd = i;
+        ret = file_entryarray_setsize(ft->ft_fdarray, i + 1);
+        if (ret) {
+            return ENOSPC;
         }
     }
     ft->ft_openfds -= 1;
@@ -276,6 +281,12 @@ filetable_copy(struct filetable *src)
     dest->ft_maxfd = -1;
     dest->ft_openfds = 0;
 
+    dest->ft_fdarray = file_entryarray_create();
+    if (dest->ft_fdarray == NULL) {
+        kfree(dest);
+        return NULL;
+    }
+
     for (i = 0; i <= src->ft_maxfd; i++) {
         fentry = filetable_get(src, i);
         /* if (fentry)
@@ -308,5 +319,5 @@ filetable_destroy(struct filetable *ft)
     }
 
     kfree(ft);
-    ft = NULL;
+    /* ft = NULL; */
 }

@@ -77,6 +77,5 @@ sys_lseek(int fd, off_t pos, int whence)
     fentry->f_offset = new_offset;
     lock_release(fentry->f_lk);
 
-    kprintf("new_offset = %d\n", (int)new_offset);
     return new_offset;
 }

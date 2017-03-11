@@ -79,6 +79,7 @@ struct proc {
 	struct filetable *p_filetable; /* process filetable */
     int p_exitstatus;
     int p_exitcode;
+    struct semaphore *p_sem;
 };
 
 /* This is the process structure for the kernel and for kernel-only threads. */

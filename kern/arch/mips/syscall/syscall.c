@@ -230,6 +230,14 @@ syscall(struct trapframe *tf)
 		}
 		break;
 
+        case SYS_waitpid:
+        err = sys_waitpid(tf->tf_a0, (userptr_t)tf->tf_a1, tf->tf_a2);
+        if (err != -1) {
+            retval = err;
+            err = 0;
+        }
+        break;
+
         case SYS__exit:
             err = tf->tf_a0;
             sys__exit(tf->tf_a0);
@@ -288,9 +296,10 @@ enter_forked_process(void *tf, long unsigned int stackptr)
 
     /* proc_setas(curthread->t_proc->p_addrspace); */
     as_activate();
-
+    
     bzero(&newtf, sizeof(newtf));
     newtf = *tfptr;
+    newtf.tf_epc = tfptr->tf_epc + 4;
     /* go to usermode */
     mips_usermode(&newtf);
 }

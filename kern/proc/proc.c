@@ -113,6 +113,16 @@ proc_create(const char *name)
         }
     }
 
+    proc->p_sem = sem_create("p_sem", 0);
+    if (proc->p_sem == NULL) {
+        kfree(proc->p_name);
+        spinlock_cleanup(&proc->p_lock);
+        kfree(proc);
+        return NULL;
+    }        
+
+    proc->p_exitcode = -1;
+    proc->p_exitstatus = -1;
 	return proc;
 }
 
@@ -199,6 +209,7 @@ proc_destroy(struct proc *proc)
 	KASSERT(proc->p_numthreads == 0);
 	spinlock_cleanup(&proc->p_lock);
 
+    /* filetable_destroy(proc->p_filetable); */
 	kfree(proc->p_name);
 	kfree(proc);
 }
