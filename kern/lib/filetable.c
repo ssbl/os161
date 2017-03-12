@@ -56,12 +56,12 @@ file_entry_destroy(struct file_entry *fentry)
         kfree(fentry->f_name);
         /* vfs_close(fentry->f_node); */
         lock_release(fentry->f_lk);
-        lock_destroy(fentry->f_lk);
+        /* lock_destroy(fentry->f_lk); */
         kfree(fentry);
     } else {
         fentry->f_refcount -= 1;
         lock_release(fentry->f_lk);
-        /* fentry = NULL; */
+        fentry = NULL;
     }
 }
 
@@ -199,7 +199,7 @@ filetable_remove(struct filetable *ft, int fd)
 
     /* remove this entry */
     file_entry_destroy(fentry);
-    /* fentry = NULL; */
+    fentry = NULL;
 
     /* update maxfd, openfds */
     if (fd == ft->ft_maxfd) {
@@ -319,5 +319,5 @@ filetable_destroy(struct filetable *ft)
     }
 
     kfree(ft);
-    /* ft = NULL; */
+    ft = NULL;
 }
