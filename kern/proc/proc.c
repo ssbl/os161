@@ -66,8 +66,6 @@ struct proctable *proctable;
 struct proc *
 proc_create(const char *name)
 {
-    /* (void)name;
-     * char *noname = "asdf"; */
 	struct proc *proc;
 
     if (kproc != NULL && proctable == NULL) {
@@ -123,6 +121,7 @@ proc_create(const char *name)
 
     proc->p_exitcode = -1;
     proc->p_exitstatus = -1;
+    proc->p_parent = NULL;
 	return proc;
 }
 
@@ -247,6 +246,12 @@ proctable_create(void)
     }
 
     procarray_set(proctable->pt_procs, 1, kproc);
+
+    proctable->pt_lock = lock_create("pt_lock");
+    if (proctable->pt_lock == NULL) {
+        panic("could not initialize pt_lock\n");
+    }
+
     proctable->pt_numprocs = 1;
     proctable->pt_maxpid = 1;
 }

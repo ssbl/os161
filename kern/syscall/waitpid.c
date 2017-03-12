@@ -32,23 +32,28 @@ sys_waitpid (pid_t pid, userptr_t status,int options)
     parent = curproc;
     spinlock_release(&curproc->p_lock);
 
+    lock_acquire(proctable->pt_lock);
     child = proctable_get(proctable, pid);
     if (child == NULL) {
+        lock_release(proctable->pt_lock);
         return ESRCH;
     } else if (child->p_ppid != parent->p_pid) {
+        lock_release(proctable->pt_lock);
         return ECHILD;
     }
 
+    lock_release(proctable->pt_lock);
     P(child->p_sem);
     if (child->p_exitcode >= 0) {
         if (!nostatus) {
             result = copyout(&child->p_exitstatus, status, sizeof(int));
             if (result) {
+                V(parent->p_sem);
                 return result;
             }
         }
     }
     V(parent->p_sem);
-    
+
     return pid;
 }

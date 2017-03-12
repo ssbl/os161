@@ -14,6 +14,7 @@ DEFARRAY_BYTYPE(procarray, struct proc, ARRAYINLINE);
  */
 struct proctable {
     struct procarray *pt_procs;
+    struct lock *pt_lock;
     int pt_numprocs;
 	int pt_maxpid;
 };

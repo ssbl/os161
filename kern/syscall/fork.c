@@ -19,15 +19,17 @@ sys_fork(struct trapframe *tf)
 {
     KASSERT(tf != NULL);
 
-    int result;
+    int result, ret;
     struct proc *newproc;
     struct trapframe *newtf;
     struct addrspace *curas, *newas;
     struct filetable *curft;
     struct filetable *newft;
 
+    lock_acquire(proctable->pt_lock);
     newproc = proc_create("<child>"); /* sets the pid */
     if (newproc == NULL) {
+        lock_release(proctable->pt_lock);
         return ENOMEM;
     }
 
@@ -39,6 +41,7 @@ sys_fork(struct trapframe *tf)
     newtf = kmalloc(sizeof(*newtf));
     if (newtf == NULL) {
         proctable_remove(proctable, newproc->p_pid);
+        lock_release(proctable->pt_lock);
         return ENOMEM;
     }
 
@@ -55,20 +58,22 @@ sys_fork(struct trapframe *tf)
     if (result) {
         proctable_remove(proctable, newproc->p_pid);
         kfree(newtf);
+        lock_release(proctable->pt_lock);
         return result;
     }
     newproc->p_addrspace = newas;
 
     /* copy file table */
     spinlock_acquire(&curproc->p_lock);
-    curft = curproc->p_filetable; /* get the paren't filetable */
+    curft = curproc->p_filetable;
+    newproc->p_parent = curproc;
     spinlock_release(&curproc->p_lock);
 
     newft = filetable_copy(curft);
     if (newft == NULL) {
-        kprintf("ft_copy failed\n");
         proctable_remove(proctable, newproc->p_pid);
         kfree(newtf);
+        lock_release(proctable->pt_lock);
         return ENOMEM;
     }
     filetable_destroy(newproc->p_filetable);
@@ -77,7 +82,11 @@ sys_fork(struct trapframe *tf)
     result = thread_fork(newproc->p_name, newproc,
                          enter_forked_process, newtf, 0);
     if (result) {
+        lock_release(proctable->pt_lock);
         return result;
     }
-    return newproc->p_pid;
+    ret = newproc->p_pid;
+    lock_release(proctable->pt_lock);
+
+    return ret;
 }

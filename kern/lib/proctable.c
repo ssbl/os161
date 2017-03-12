@@ -25,7 +25,7 @@ proctable_get(struct proctable *pt, int pid)
         return NULL;
     }
 
-    return procarray_get(pt->pt_procs, pid);
+    return procarray_get(pt->pt_procs, pid); 
 }
 
 int

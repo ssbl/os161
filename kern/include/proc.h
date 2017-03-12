@@ -80,6 +80,7 @@ struct proc {
     int p_exitstatus;
     int p_exitcode;
     struct semaphore *p_sem;
+    struct proc *p_parent;
 };
 
 /* This is the process structure for the kernel and for kernel-only threads. */

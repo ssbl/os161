@@ -21,8 +21,9 @@ sys__exit(int exitcode)
     proc = curproc;
     spinlock_release(&curproc->p_lock);
 
-    parent = proctable_get(proctable, proc->p_ppid);
+    parent = proc->p_parent;
     if (parent == NULL) {
+        V(proc->p_sem);         /* just in case */
         goto exit;
     }
 
@@ -33,7 +34,9 @@ sys__exit(int exitcode)
     P(parent->p_sem);
     /* exited, wait for signal from waitpid */
 exit:
+    lock_acquire(proctable->pt_lock);
     proc_remthread(cur);
     proctable_remove(proctable, proc->p_pid);
+    lock_release(proctable->pt_lock);
     thread_exit();
 }
