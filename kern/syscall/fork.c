@@ -20,11 +20,15 @@ sys_fork(struct trapframe *tf)
     KASSERT(tf != NULL);
 
     int result, ret;
-    struct proc *newproc;
+    struct proc *proc, *newproc;
     struct trapframe *newtf;
     struct addrspace *curas, *newas;
     struct filetable *curft;
     struct filetable *newft;
+
+    spinlock_acquire(&curproc->p_lock);
+    proc = curproc;
+    spinlock_release(&curproc->p_lock);
 
     lock_acquire(proctable->pt_lock);
     newproc = proc_create("<child>"); /* sets the pid */
@@ -49,11 +53,8 @@ sys_fork(struct trapframe *tf)
     *newtf = *tf;                 /* copy using assignment */
     newtf->tf_v0 = 0;             /* return value of fork for child */
 
-    spinlock_acquire(&curproc->p_lock);
-    curas = curproc->p_addrspace;
-    spinlock_release(&curproc->p_lock);
-
     /* copy address space */
+    curas = proc->p_addrspace;
     result = as_copy(curas, &newas); /* do the copy */
     if (result) {
         proctable_remove(proctable, newproc->p_pid);
@@ -64,10 +65,8 @@ sys_fork(struct trapframe *tf)
     newproc->p_addrspace = newas;
 
     /* copy file table */
-    spinlock_acquire(&curproc->p_lock);
-    curft = curproc->p_filetable;
-    newproc->p_parent = curproc;
-    spinlock_release(&curproc->p_lock);
+    curft = proc->p_filetable;
+    newproc->p_parent = proc;
 
     newft = filetable_copy(curft);
     if (newft == NULL) {

@@ -401,6 +401,7 @@ file      syscall/getpid.c
 file      syscall/fork.c
 file      syscall/__getcwd.c
 file      syscall/chdir.c
+file      syscall/execv.c
 
 #
 # Startup and initialization

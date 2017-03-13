@@ -200,6 +200,14 @@ syscall(struct trapframe *tf)
         kfree(stackbuf);
         break;
 
+        case SYS_dup2:
+        err = sys_dup2(tf->tf_a0, tf->tf_a1);
+        if (err != -1) {
+            retval = err;
+            err = 0;
+        }
+        break;
+
 		case SYS_fork:
 		err=sys_fork(tf);
 		if (err>0) {
@@ -236,6 +244,11 @@ syscall(struct trapframe *tf)
             retval = err;
             err = 0;
         }
+        break;
+
+    case SYS_execv:
+        err = sys_execv((const_userptr_t)tf->tf_a0,
+                        (char **)tf->tf_a1);
         break;
 
         case SYS__exit:

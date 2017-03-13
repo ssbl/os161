@@ -23,27 +23,23 @@ sys_open(const_userptr_t filename, int flags)
     struct file_entry *fentry;
 
     if (filename == NULL) {
-        kprintf("open: null userptr\n");
         return EFAULT;
     }
 
     kfilename = kmalloc(FILENAME_MAXLEN * sizeof(char));
     if (kfilename == NULL) {
-        kprintf("open: kmalloc failed\n");
         return ENOSPC;
     }
 
     result = copyinstr(filename, kfilename, FILENAME_MAXLEN, &buflen);
     if (result) {
         kfree(kfilename);
-        kprintf("open: copyinstr failed\n");
         return result;
     }
 
-    result = vfs_open(kfilename, flags, 0664, &vnode);
+    result = vfs_open(kfilename, flags, 0, &vnode);
     if (result) {
         kfree(kfilename);
-        kprintf("open: error in vfs_open\n");
         return result;
     }
 
@@ -51,7 +47,6 @@ sys_open(const_userptr_t filename, int flags)
     if (fentry == NULL) {
         kfree(kfilename);
         vfs_close(vnode);
-        kprintf("open: couldn't create entry\n");
         return ENOSPC;
     }
 

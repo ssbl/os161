@@ -29,11 +29,9 @@ sys_lseek(int fd, off_t pos, int whence)
      * } */
 
     if (fd < 0) {
-        kprintf("lseek: negative fd (%d)\n", fd);
         return EBADF;
     }
     if (pos < 0) {
-        kprintf("lseek: negative pos (%d)\n", (int)pos);
         return EINVAL;
     }
 
@@ -43,16 +41,14 @@ sys_lseek(int fd, off_t pos, int whence)
 
     fentry = filetable_get(filetable, fd);
     if (fentry == NULL) {
-        kprintf("lseek: couldn't find a file handle for fd %d\n", fd);
         return EBADF;
     }
 
     if (!VOP_ISSEEKABLE(fentry->f_node)) {
-        kprintf("lseek: file not seekable\n");
         return ESPIPE;
     }
 
-    lock_acquire(fentry->f_lk); /* this seems useless */
+    lock_acquire(fentry->f_lk);
     cur_offset = fentry->f_offset;
     switch(whence) {
     case SEEK_SET:
