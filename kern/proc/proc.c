@@ -101,15 +101,15 @@ proc_create(const char *name)
 	}
 
     /* add it to the process table */
-    if (kproc != NULL) {
-        int result = proctable_add(proctable, proc);
-        if (result) {
-            kfree(proc->p_name);
-            spinlock_cleanup(&proc->p_lock);
-            kfree(proc);
-            return NULL;
-        }
-    }
+    /* if (kproc != NULL) {
+     *     int result = proctable_add(proctable, proc);
+     *     if (result) {
+     *         kfree(proc->p_name);
+     *         spinlock_cleanup(&proc->p_lock);
+     *         kfree(proc);
+     *         return NULL;
+     *     }
+     * } */
 
     proc->p_sem = sem_create("p_sem", 0);
     if (proc->p_sem == NULL) {

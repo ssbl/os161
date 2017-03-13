@@ -53,7 +53,11 @@ sys_waitpid (pid_t pid, userptr_t status,int options)
             }
         }
     }
-    V(parent->p_sem);
+    /* V(parent->p_sem); */
+    lock_acquire(proctable->pt_lock);
+    proctable_remove(proctable, child->p_pid);
+    lock_release(proctable->pt_lock);
+
 
     return pid;
 }

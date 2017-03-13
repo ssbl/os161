@@ -30,22 +30,22 @@ sys_fork(struct trapframe *tf)
     proc = curproc;
     spinlock_release(&curproc->p_lock);
 
-    lock_acquire(proctable->pt_lock);
     newproc = proc_create("<child>"); /* sets the pid */
     if (newproc == NULL) {
-        lock_release(proctable->pt_lock);
+        /* lock_release(proctable->pt_lock); */
         return ENOMEM;
     }
 
     tf->tf_v0 = newproc->p_pid; /* return value */
     tf->tf_a3 = 0;              /* signal no error */
     newproc->p_ppid = sys_getpid(); /* set the parent pid */
+    /* newproc->p_cwd = proc->p_cwd; */
 
     /* copy trapframe */
     newtf = kmalloc(sizeof(*newtf));
     if (newtf == NULL) {
-        proctable_remove(proctable, newproc->p_pid);
-        lock_release(proctable->pt_lock);
+        /* proctable_remove(proctable, newproc->p_pid); */
+        /* lock_release(proctable->pt_lock); */
         return ENOMEM;
     }
 
@@ -57,9 +57,9 @@ sys_fork(struct trapframe *tf)
     curas = proc->p_addrspace;
     result = as_copy(curas, &newas); /* do the copy */
     if (result) {
-        proctable_remove(proctable, newproc->p_pid);
+        /* proctable_remove(proctable, newproc->p_pid); */
         kfree(newtf);
-        lock_release(proctable->pt_lock);
+        /* lock_release(proctable->pt_lock); */
         return result;
     }
     newproc->p_addrspace = newas;
@@ -70,22 +70,33 @@ sys_fork(struct trapframe *tf)
 
     newft = filetable_copy(curft);
     if (newft == NULL) {
-        proctable_remove(proctable, newproc->p_pid);
+        /* proctable_remove(proctable, newproc->p_pid); */
         kfree(newtf);
-        lock_release(proctable->pt_lock);
+        /* lock_release(proctable->pt_lock); */
         return ENOMEM;
     }
     filetable_destroy(newproc->p_filetable);
     newproc->p_filetable = newft;
 
-    result = thread_fork(newproc->p_name, newproc,
-                         enter_forked_process, newtf, 0);
+    lock_acquire(proctable->pt_lock);
+    result = proctable_add(proctable, newproc);
     if (result) {
+        kfree(newtf);
         lock_release(proctable->pt_lock);
         return result;
     }
-    ret = newproc->p_pid;
     lock_release(proctable->pt_lock);
+
+    /* if (result) { */
+    /* lock_release(proctable->pt_lock); */
+
+    result = thread_fork(newproc->p_name, newproc,
+                         enter_forked_process, newtf, 0);
+    if (result) {
+        /* lock_release(proctable->pt_lock); */
+        return result;
+    }
+    ret = newproc->p_pid;
 
     return ret;
 }
