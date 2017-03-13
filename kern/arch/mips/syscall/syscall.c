@@ -122,7 +122,7 @@ syscall(struct trapframe *tf)
         case SYS_open:
         err = sys_open((const_userptr_t)tf->tf_a0,
                        tf->tf_a1);
-        if (err > 0) {
+        if (err != -1) {
             retval = err;
             err = 0;
         }
@@ -303,16 +303,14 @@ void
 enter_forked_process(void *tf, long unsigned int stackptr)
 {
     (void)stackptr;
-    /* (void)tf; */
     struct trapframe *tfptr = tf, newtf;
-    /* vaddr_t stacktop; */
 
-    /* proc_setas(curthread->t_proc->p_addrspace); */
     as_activate();
     
     bzero(&newtf, sizeof(newtf));
     newtf = *tfptr;
     newtf.tf_epc = tfptr->tf_epc + 4;
+    kfree(tf);
     /* go to usermode */
     mips_usermode(&newtf);
 }

@@ -34,6 +34,7 @@ struct filetable {
     struct file_entryarray *ft_fdarray; /* array of file handles */
     int ft_maxfd;               /* highest open (non-null) fd */
     int ft_openfds;             /* number of open fds */
+    struct lock *ft_lock;
 };
 
 struct file_entry *file_entry_create(const char *name, int openflags,

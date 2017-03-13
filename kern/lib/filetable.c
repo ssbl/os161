@@ -92,7 +92,6 @@ filetable_create(void)
 {
     int ret;
     struct filetable *ft = NULL;
-    struct file_entryarray *fdarray = NULL;
     struct file_entry *stdin, *stdout, *stderr;
 
     ft = kmalloc(sizeof(*ft));
@@ -100,8 +99,8 @@ filetable_create(void)
         return NULL;
     }
 
-    fdarray = file_entryarray_create();
-    if (fdarray == NULL) {
+    ft->ft_fdarray = file_entryarray_create();
+    if (ft->ft_fdarray == NULL) {
         kfree(ft);
         return NULL;
     }
