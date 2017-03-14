@@ -156,7 +156,6 @@ int
 filetable_set(struct filetable *ft, int fd, struct file_entry *fentry)
 {
     KASSERT(ft != NULL);
-    KASSERT(fentry != NULL);
 
     int ret;
 

@@ -74,8 +74,8 @@ write:
     result = VOP_WRITE(vnode, &uio);
     if (result) {
         kfree(kbuffer);
-        lock_release(fentry->f_lk);
         *retval = result;
+        lock_release(fentry->f_lk);
         return -1;
     }
 
@@ -89,5 +89,6 @@ write:
     fentry->f_refcount -= 1;
     lock_release(fentry->f_lk);
 
+    kfree(kbuffer);
     return buflen;
 }

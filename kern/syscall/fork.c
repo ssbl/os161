@@ -15,7 +15,7 @@
 #include <proctable.h>
 
 pid_t
-sys_fork(struct trapframe *tf)
+sys_fork(struct trapframe *tf, int *retval)
 {
     KASSERT(tf != NULL);
 
@@ -36,7 +36,8 @@ sys_fork(struct trapframe *tf)
 
     newproc = proc_create("<child>"); /* sets the pid */
     if (newproc == NULL) {
-        return ENOMEM;
+        *retval = ENOMEM;
+        return -1;
     }
 
     tf->tf_v0 = newproc->p_pid;     /* return value */
@@ -48,7 +49,8 @@ sys_fork(struct trapframe *tf)
     newtf = kmalloc(sizeof(*newtf));
     if (newtf == NULL) {
         proc_destroy(newproc);
-        return ENOMEM;
+        *retval = ENOMEM;
+        return -1;
     }
 
     bzero(newtf, sizeof(*newtf)); /* zero out the trapframe */
@@ -60,7 +62,8 @@ sys_fork(struct trapframe *tf)
     if (result) {
         proc_destroy(newproc);
         kfree(newtf);
-        return result;
+        *retval = result;
+        return -1;
     }
     newproc->p_addrspace = newas;
 
@@ -72,7 +75,8 @@ sys_fork(struct trapframe *tf)
     if (newft == NULL) {
         proc_destroy(newproc);
         kfree(newtf);
-        return ENOMEM;
+        *retval = ENOMEM;
+        return -1;
     }
     filetable_destroy(newproc->p_filetable);
     newproc->p_filetable = newft;
@@ -93,8 +97,9 @@ sys_fork(struct trapframe *tf)
     if (result) {
         kfree(newtf);
         proc_destroy(newproc);
+        *retval = result;
         lock_release(proctable->pt_lock);
-        return result;
+        return -1;
     }
     lock_release(proctable->pt_lock);
 
@@ -103,7 +108,8 @@ sys_fork(struct trapframe *tf)
     if (result) {
         proc_destroy(newproc);
         kfree(newtf);
-        return result;
+        *retval = result;
+        return -1;
     }
     ret = newproc->p_pid;
 

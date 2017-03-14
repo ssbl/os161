@@ -13,7 +13,7 @@
 
 
 int
-sys___getcwd(userptr_t buf, size_t buflen)
+sys___getcwd(userptr_t buf, size_t buflen, int *retval)
 {
 	int result;
 	char *kbuffer;
@@ -24,11 +24,16 @@ sys___getcwd(userptr_t buf, size_t buflen)
 
 	if(buf == NULL)
 	{
-		return EFAULT;
+        *retval = EFAULT;
+		return -1;
 	}
 
 	kbuffer = kmalloc(buflen * sizeof(char));		
-	
+    if (kbuffer == NULL) {
+        *retval = ENOMEM;
+        return -1;
+    }
+
 	uio_kinit(&iov, &uio, kbuffer, buflen, 0, UIO_READ);
 
 	/*
@@ -40,6 +45,7 @@ sys___getcwd(userptr_t buf, size_t buflen)
 	if (result)
 	{
 		kfree(kbuffer);
+        *retval = result;
 		return -1;
 	}
 
@@ -47,9 +53,11 @@ sys___getcwd(userptr_t buf, size_t buflen)
     if (result) 
 	{
         kfree(kbuffer);
+        *retval = result;
         return -1;
     }
 
+    kfree(kbuffer);
 	return buflen;
 	
 }

@@ -219,11 +219,13 @@ syscall(struct trapframe *tf)
         break;
 
 		case SYS_fork:
-		err=sys_fork(tf);
-		if (err>0) {
+        err=sys_fork(tf, &retval);
+		if (err != -1) {
 			retval=err;
 			err=0;
-		}
+		} else {
+            err = retval;
+        }
 		break;
 
 		case SYS_getpid:
@@ -234,18 +236,24 @@ syscall(struct trapframe *tf)
 
 		case SYS___getcwd:
 	    err = sys___getcwd((userptr_t)tf->tf_a0,
-                       tf->tf_a1);
-        if (err>0) {
+                           tf->tf_a1,
+                           &retval);
+        if (err != -1) {
 			retval=err;
 			err=0;
-		}	
+		} else {
+            err = retval;
+        }
 		break;
 		
 		case SYS_chdir:
-	    err = sys_chdir((const char *)tf->tf_a0);
-		if (err == 0) {
-			retval=err;	
-		}
+        err = sys_chdir((const_userptr_t)tf->tf_a0, &retval);
+		if (err != -1) {
+			retval=err;
+            err = 0;
+		} else {
+            err = retval;
+        }
 		break;
 
         case SYS_waitpid:

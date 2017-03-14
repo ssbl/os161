@@ -90,6 +90,8 @@ sys_execv(const_userptr_t program, char **args, int *retval)
 
     result = vfs_open(kprogram, O_RDONLY, 0, &v);
     if (result) {
+        kfree(kprogram);
+        kfree(kargs);
 		*retval = result;
 		return -1;
     }
@@ -168,6 +170,8 @@ sys_execv(const_userptr_t program, char **args, int *retval)
             /* kprintf("\n"); */
             result = copyout(strtocopy, (userptr_t)argptr, sizeof(uint32_t));
             if (result) {
+                kfree(kprogram);
+                kfree(kargs);
 				*retval = result;
             	return -1; 
             }

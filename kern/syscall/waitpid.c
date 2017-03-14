@@ -58,9 +58,10 @@ sys_waitpid (pid_t pid, userptr_t status, int options, int *retval)
     }
     /* V(parent->p_sem); */
     lock_acquire(proctable->pt_lock);
+    kprintf("child: %d\n", child->p_pid);
     proctable_remove(proctable, child->p_pid);
     lock_release(proctable->pt_lock);
-    if (retval) {
+    if (*retval) {
         return -1;
     }
 

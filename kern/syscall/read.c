@@ -85,5 +85,6 @@ sys_read(int fd, userptr_t user_buf, size_t buflen, int *retval)
     fentry->f_refcount -= 1;
     lock_release(fentry->f_lk);
 
+    kfree(kbuffer);
     return result;
 }

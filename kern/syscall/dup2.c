@@ -16,8 +16,8 @@ int
 sys_dup2(int oldfd, int newfd, int *retval)
 {
     int result;
-    struct file_entry *fentry_newfd = NULL;
-    struct file_entry *fentry_oldfd = NULL;
+    struct file_entry *fentry_newfd;
+    struct file_entry *fentry_oldfd;
     struct filetable *filetable = NULL;
 
     if (oldfd < 0 || newfd < 0) {
@@ -43,15 +43,25 @@ sys_dup2(int oldfd, int newfd, int *retval)
     lock_acquire(fentry_oldfd->f_lk);
     fentry_newfd = filetable_get(filetable, newfd);
     if (fentry_newfd != NULL) {
-        filetable_remove(filetable, newfd);
+        kprintf("open file: %s\n", fentry_newfd->f_name);
+        result = filetable_remove(filetable, newfd);
+        if (result) {
+            *retval = result;
+            lock_release(fentry_oldfd->f_lk);
+            return -1;
+        }
     }
 
     result = filetable_set(filetable, newfd, fentry_oldfd);
-    lock_release(fentry_oldfd->f_lk);
     if (result) {
         *retval = result;
+        lock_release(fentry_oldfd->f_lk);
         return -1;
     }
+    filetable->ft_maxfd = newfd > filetable->ft_maxfd ?
+        newfd : filetable->ft_maxfd;
+    filetable->ft_openfds += 1;
+    lock_release(fentry_oldfd->f_lk);
 
     return newfd;
 }
