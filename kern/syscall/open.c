@@ -13,7 +13,7 @@
 
 
 int
-sys_open(const_userptr_t filename, int flags)
+sys_open(const_userptr_t filename, int flags, int *retval)
 {
     int result;
     size_t buflen;
@@ -23,31 +23,36 @@ sys_open(const_userptr_t filename, int flags)
     struct file_entry *fentry;
 
     if (filename == NULL) {
-        return EFAULT;
+        *retval = EFAULT;
+        return -1;
     }
 
     kfilename = kmalloc(FILENAME_MAXLEN * sizeof(char));
     if (kfilename == NULL) {
-        return ENOSPC;
+        *retval = ENOSPC;
+        return -1;
     }
 
     result = copyinstr(filename, kfilename, FILENAME_MAXLEN, &buflen);
     if (result) {
         kfree(kfilename);
-        return result;
+        *retval = result;
+        return -1;
     }
 
     result = vfs_open(kfilename, flags, 0, &vnode);
     if (result) {
         kfree(kfilename);
-        return result;
+        *retval = result;
+        return -1;
     }
 
     fentry = file_entry_create(kfilename, flags, vnode);
     if (fentry == NULL) {
         kfree(kfilename);
         vfs_close(vnode);
-        return ENOSPC;
+        *retval = ENOSPC;
+        return -1;
     }
 
     spinlock_acquire(&curproc->p_lock);

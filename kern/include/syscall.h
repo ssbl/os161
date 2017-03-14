@@ -57,12 +57,12 @@ __DEAD void enter_new_process(int argc, userptr_t argv, userptr_t env,
  */
 
 int sys_reboot(int code);
-int sys_open(const_userptr_t filename, int flags);
+int sys_open(const_userptr_t filename, int flags, int *retval);
 int sys_close(int fd);
-off_t sys_lseek(int fd, off_t pos, int whence);
-ssize_t sys_read(int fd, userptr_t user_buf, size_t buflen);
-ssize_t sys_write(int fd, const_userptr_t user_buf, size_t buflen);
-int sys_dup2(int oldfd, int newfd);
+off_t sys_lseek(int fd, off_t pos, int whence, int *retval);
+ssize_t sys_read(int fd, userptr_t user_buf, size_t buflen, int *retval);
+ssize_t sys_write(int fd, const_userptr_t user_buf, size_t buflen, int *retval);
+int sys_dup2(int oldfd, int newfd, int *retval);
 pid_t sys_fork(struct trapframe *tf);
 pid_t sys_getpid(void);
 int sys_chdir(const char *pathname);

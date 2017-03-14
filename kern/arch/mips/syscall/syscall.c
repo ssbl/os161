@@ -121,10 +121,13 @@ syscall(struct trapframe *tf)
 
         case SYS_open:
         err = sys_open((const_userptr_t)tf->tf_a0,
-                       tf->tf_a1);
+                       tf->tf_a1,
+                       &retval);
         if (err != -1) {
             retval = err;
             err = 0;
+        } else {
+            err = retval;
         }
         break;
 
@@ -139,20 +142,26 @@ syscall(struct trapframe *tf)
         case SYS_read:
         err = (ssize_t)sys_read(tf->tf_a0,
                                 (userptr_t)tf->tf_a1,
-                                tf->tf_a2);
-        if (err != EBADF && err != EFAULT) {
+                                tf->tf_a2,
+                                &retval);
+        if (err != -1) {
             retval = err;
             err = 0;
+        } else {
+            err = retval;
         }
         break;
 
         case SYS_write:
         err = (ssize_t)sys_write(tf->tf_a0,
                                  (const_userptr_t)tf->tf_a1,
-                                 tf->tf_a2);
-        if (err >= 0) {
+                                 tf->tf_a2,
+                                 &retval);
+        if (err != -1) {
             retval = err;
             err = 0;
+        } else {
+            err = retval;
         }
         break;
 
@@ -174,6 +183,7 @@ syscall(struct trapframe *tf)
             break;
         }
 
+        retval = 0;
         stackptr = stackbuf + 3;
 
         /* for (err = 0; err < 5; err++) {
@@ -184,9 +194,7 @@ syscall(struct trapframe *tf)
         /* kprintf("whence = %d\n", whence); */
         pos = ((off_t)tf->tf_a2 << 32) + (off_t)tf->tf_a3;
 
-        retval64 = (off_t)sys_lseek(tf->tf_a0,
-                               pos,
-                               whence);
+        retval64 = (off_t)sys_lseek(tf->tf_a0, pos, whence, &retval);
         if (retval64 >= 0) {
             tf->tf_v1 = retval64 & 0xffffffff;
             tf->tf_v0 = retval64 >> 32;
@@ -195,16 +203,18 @@ syscall(struct trapframe *tf)
             kfree(stackbuf);
             goto advance_ptr;
         } else {
-            err = retval64;
+            err = retval;
         }
         kfree(stackbuf);
         break;
 
         case SYS_dup2:
-        err = sys_dup2(tf->tf_a0, tf->tf_a1);
+        err = sys_dup2(tf->tf_a0, tf->tf_a1, &retval);
         if (err != -1) {
             retval = err;
             err = 0;
+        } else {
+            err = retval;
         }
         break;
 

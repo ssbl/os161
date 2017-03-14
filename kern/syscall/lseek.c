@@ -15,7 +15,7 @@
 
 
 off_t
-sys_lseek(int fd, off_t pos, int whence)
+sys_lseek(int fd, off_t pos, int whence, int *retval)
 {
     int result;
     off_t cur_offset, new_offset;
@@ -23,16 +23,9 @@ sys_lseek(int fd, off_t pos, int whence)
     struct file_entry *fentry;
     struct filetable *filetable;
 
-    /* if (fd > 0) {
-     *     kprintf("fd = %d, pos = %d, whence = %d\n", fd, (int)pos, whence);
-     *     return pos;
-     * } */
-
     if (fd < 0) {
-        return EBADF;
-    }
-    if (pos < 0) {
-        return EINVAL;
+        *retval = EBADF;
+        return -1;
     }
 
     spinlock_acquire(&curproc->p_lock);
@@ -41,11 +34,13 @@ sys_lseek(int fd, off_t pos, int whence)
 
     fentry = filetable_get(filetable, fd);
     if (fentry == NULL) {
-        return EBADF;
+        *retval = EBADF;
+        return -1;
     }
 
     if (!VOP_ISSEEKABLE(fentry->f_node)) {
-        return ESPIPE;
+        *retval = ESPIPE;
+        return -1;
     }
 
     lock_acquire(fentry->f_lk);
@@ -60,15 +55,22 @@ sys_lseek(int fd, off_t pos, int whence)
     case SEEK_END:
         result = VOP_STAT(fentry->f_node, &statbuf);
         if (result) {
+            *retval = EBADF;
             lock_release(fentry->f_lk);
-            return EBADF;
+            return -1;
         }
 
         new_offset = statbuf.st_size + pos;
         break;
     default:
+        *retval = EINVAL;
         lock_release(fentry->f_lk);
-        return EINVAL;
+        return -1;
+    }
+    if (new_offset < 0) {
+        *retval = EINVAL;
+        lock_release(fentry->f_lk);
+        return -1;
     }
     fentry->f_offset = new_offset;
     lock_release(fentry->f_lk);

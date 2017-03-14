@@ -14,7 +14,7 @@
 
 
 ssize_t
-sys_read(int fd, userptr_t user_buf, size_t buflen)
+sys_read(int fd, userptr_t user_buf, size_t buflen, int *retval)
 {
     int result;
     char *kbuffer;
@@ -26,16 +26,19 @@ sys_read(int fd, userptr_t user_buf, size_t buflen)
 
     /* check file descriptor and buffer pointer */
     if (fd < 0 || fd >= OPEN_MAX) {
-        return EBADF;
+        *retval = EBADF;
+        return -1;
     }
     if (user_buf == NULL) {
-        return EFAULT;
+        *retval = EFAULT;
+        return -1;
     }
 
     /* initialize buffer */
     kbuffer = kmalloc(buflen * sizeof(char));
     if (kbuffer == NULL) {
-        return ENOSPC;
+        *retval = ENOSPC;
+        return -1;
     }
 
     /* create a uio for vop_read */
@@ -50,7 +53,8 @@ sys_read(int fd, userptr_t user_buf, size_t buflen)
     fentry = filetable_get(filetable, fd);
     if (fentry == NULL || fentry->f_mode == O_WRONLY) {
         kfree(kbuffer);
-        return EBADF;
+        *retval = EBADF;
+        return -1;
     }
 
     lock_acquire(fentry->f_lk);
@@ -71,7 +75,8 @@ sys_read(int fd, userptr_t user_buf, size_t buflen)
     if (result) {
         kfree(kbuffer);
         lock_release(fentry->f_lk);
-        return result;
+        *retval = result;
+        return -1;
     }
 
     /* store return value, update offset */

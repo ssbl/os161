@@ -13,7 +13,7 @@
 
 
 ssize_t
-sys_write(int fd, const_userptr_t user_buf, size_t buflen)
+sys_write(int fd, const_userptr_t user_buf, size_t buflen, int *retval)
 {
     int result;
     char *kbuffer;
@@ -24,24 +24,28 @@ sys_write(int fd, const_userptr_t user_buf, size_t buflen)
     struct file_entry *fentry;
 
     /* check file descriptor and buffer pointer */
-    if (fd <= 0) {
-        return EBADF;
+    if (fd < 0) {
+        *retval = EBADF;
+        return -1;
     }
     if (user_buf == NULL) {
-        return EFAULT;
+        *retval = EFAULT;
+        return -1;
     }
 
     /* initialize buffer */
     kbuffer = kmalloc(buflen * sizeof(char));
     if (kbuffer == NULL) {
-        return ENOSPC;
+        *retval = ENOSPC;
+        return -1;
     }
 
     /* load data into buffer */
     result = copyin(user_buf, kbuffer, buflen);
     if (result) {
         kfree(kbuffer);
-        return result;
+        *retval = result;
+        return -1;
     }
 
     /* create a uio for vop_write */
@@ -56,7 +60,8 @@ sys_write(int fd, const_userptr_t user_buf, size_t buflen)
     fentry = filetable_get(filetable, fd);
     if (fentry == NULL || fentry->f_mode == O_RDONLY) {
         kfree(kbuffer);
-        return EBADF;
+        *retval = EBADF;
+        return -1;
     }
 
     lock_acquire(fentry->f_lk);
@@ -70,7 +75,8 @@ write:
     if (result) {
         kfree(kbuffer);
         lock_release(fentry->f_lk);
-        return result;
+        *retval = result;
+        return -1;
     }
 
     /* make sure we wrote everything */
