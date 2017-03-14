@@ -31,6 +31,8 @@ sys_dup2(int oldfd, int newfd)
     filetable = curproc->p_filetable;
     spinlock_release(&curproc->p_lock);
 
+    KASSERT(filetable != NULL);
+
     fentry_oldfd = filetable_get(filetable, oldfd);
     if (fentry_oldfd == NULL) {
         return EBADF;

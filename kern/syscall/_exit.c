@@ -14,7 +14,7 @@ void
 sys__exit(int exitcode)
 {
     int code = _MKWAIT_EXIT(exitcode);
-    /* struct thread *cur = curthread; */
+    struct thread *cur = curthread;
     struct proc *proc;/* , *parent; */
 
     spinlock_acquire(&curproc->p_lock);
@@ -32,7 +32,7 @@ sys__exit(int exitcode)
     proc->p_exitstatus = code;
     proc->p_exitcode = exitcode;
 
-    /* proc_remthread(cur); */
+    proc_remthread(cur);
     V(proc->p_sem);
     /* exited, wait for signal from waitpid */
     /* P(parent->p_sem); */

@@ -16,7 +16,7 @@ int
 sys_close(int fd)
 {
     int result;
-    struct filetable *filetable;
+    struct filetable *filetable = NULL;
 
     spinlock_acquire(&curproc->p_lock);
     filetable = curproc->p_filetable;

@@ -3,6 +3,7 @@
 #include <current.h>
 #include <kern/fcntl.h>
 #include <kern/errno.h>
+#include <limits.h>
 #include <lib.h>
 #include <proc.h>
 #include <uio.h>
@@ -24,7 +25,7 @@ sys_read(int fd, userptr_t user_buf, size_t buflen)
     struct file_entry *fentry;
 
     /* check file descriptor and buffer pointer */
-    if (fd < 0) {
+    if (fd < 0 || fd >= OPEN_MAX) {
         return EBADF;
     }
     if (user_buf == NULL) {
@@ -53,6 +54,7 @@ sys_read(int fd, userptr_t user_buf, size_t buflen)
     }
 
     lock_acquire(fentry->f_lk);
+    fentry->f_refcount += 1;
     vnode = fentry->f_node;
     uio.uio_offset = fentry->f_offset;
 
@@ -75,6 +77,7 @@ sys_read(int fd, userptr_t user_buf, size_t buflen)
     /* store return value, update offset */
     result = uio.uio_offset - fentry->f_offset;
     fentry->f_offset += uio.uio_offset;
+    fentry->f_refcount -= 1;
     lock_release(fentry->f_lk);
 
     return result;

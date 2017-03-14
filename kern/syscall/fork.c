@@ -31,6 +31,7 @@ sys_fork(struct trapframe *tf)
     proc = curproc;
     VOP_INCREF(curproc->p_cwd);
     cwd = curproc->p_cwd;
+    curas = proc->p_addrspace;
     spinlock_release(&curproc->p_lock);
 
     newproc = proc_create("<child>"); /* sets the pid */
@@ -55,7 +56,6 @@ sys_fork(struct trapframe *tf)
     newtf->tf_v0 = 0;             /* return value of fork for child */
 
     /* copy address space */
-    curas = proc->p_addrspace;
     result = as_copy(curas, &newas); /* do the copy */
     if (result) {
         proc_destroy(newproc);
@@ -76,6 +76,17 @@ sys_fork(struct trapframe *tf)
     }
     filetable_destroy(newproc->p_filetable);
     newproc->p_filetable = newft;
+
+    /* for (int i = 0; i <= newft->ft_maxfd; i++) {
+     *     struct file_entry *fentry = filetable_get(newft, i);
+     *     if (fentry == NULL) {
+     *         kprintf("found null at %d\n", i);
+     *     } else {
+     *         if (fentry->f_lk != NULL) {
+     *             kprintf("found %s at %d\n", fentry->f_name, i);
+     *         }
+     *     }
+     * } */
 
     lock_acquire(proctable->pt_lock);
     result = proctable_add(proctable, newproc);
