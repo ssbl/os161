@@ -229,8 +229,8 @@ syscall(struct trapframe *tf)
 		break;
 
 		case SYS_getpid:
-		err=sys_getpid();	
-		retval=err;
+        err=sys_getpid();	
+        retval = err;
 		err=0;
 		break;
 

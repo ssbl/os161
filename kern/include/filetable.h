@@ -47,7 +47,7 @@ struct filetable *filetable_copy(struct filetable *src);
 struct file_entry *filetable_get(struct filetable *ft, int fd);
 int filetable_set(struct filetable *ft, int fd, struct file_entry *fentry);
 int filetable_remove(struct filetable *ft, int fd);
-int filetable_add(struct filetable *ft, struct file_entry *fentry);
+int filetable_add(struct filetable *ft, struct file_entry *fentry, int *retval);
 int filetable_checkfd(struct filetable *ft, int fd);
 void filetable_destroy(struct filetable *ft);
 

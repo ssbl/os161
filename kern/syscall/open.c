@@ -59,7 +59,7 @@ sys_open(const_userptr_t filename, int flags, int *retval)
     filetable = curproc->p_filetable;
     spinlock_release(&curproc->p_lock);
 
-    result = filetable_add(filetable, fentry);
+    result = filetable_add(filetable, fentry, retval);
 
     kfree(kfilename);
     return result;

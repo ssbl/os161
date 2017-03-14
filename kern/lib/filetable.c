@@ -7,6 +7,7 @@
 #include <vfs.h>
 #include <vnode.h>
 #include <proc.h>
+#include <current.h>
 
 #include "filetable.h"
 
@@ -223,7 +224,7 @@ filetable_remove(struct filetable *ft, int fd)
  * Return the index of this new entry.
  */
 int
-filetable_add(struct filetable *ft, struct file_entry *fentry)
+filetable_add(struct filetable *ft, struct file_entry *fentry, int *retval)
 {
     KASSERT(ft != NULL);
     KASSERT(fentry != NULL);
@@ -232,7 +233,11 @@ filetable_add(struct filetable *ft, struct file_entry *fentry)
     struct file_entry *f;
 
     if (ft->ft_maxfd == -1) {
-        return filetable_set(ft, 0, fentry);
+        ret = filetable_set(ft, 0, fentry);
+        if (ret != 0) {
+            *retval = ret;
+            return -1;
+        }
     }
 
     for (i = 0; i < ft->ft_maxfd; i++) {
@@ -245,14 +250,16 @@ filetable_add(struct filetable *ft, struct file_entry *fentry)
 
     if (i == ft->ft_maxfd) {
         if (i == MAXFDS - 1) {  /* filetable full */
-            return EMFILE;
+            *retval = EMFILE;
+            return -1;
         }
 
         i += 1;                 /* otherwise, add it to the end */
         arr_size = ft->ft_maxfd + 1;
         ret = file_entryarray_setsize(ft->ft_fdarray, arr_size + 1);
         if (ret) {
-            return ENOSPC;
+            *retval = ENOSPC;
+            return -1;
         }
         file_entryarray_set(ft->ft_fdarray, i, fentry);
     }
@@ -308,10 +315,13 @@ filetable_destroy(struct filetable *ft)
     int i;
     struct file_entry *fentry;
 
+    /* kprintf("maxfd = %d\n", ft->ft_maxfd); */
     for (i = 0; i <= ft->ft_maxfd; i++) {
         fentry = filetable_get(ft, i);
         if (fentry != NULL) {
+            /* kprintf("removing %d...", i); */
             filetable_remove(ft, i);
+            /* kprintf("done\n"); */
         }
     }
 
