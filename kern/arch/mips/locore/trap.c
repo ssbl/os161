@@ -39,7 +39,9 @@
 #include <vm.h>
 #include <mainbus.h>
 #include <syscall.h>
-
+#include <spinlock.h>
+#include <proc.h>
+#include <kern/wait.h>
 
 /* in exception-*.S */
 extern __DEAD void asm_usermode(struct trapframe *tf);
@@ -74,7 +76,11 @@ void
 kill_curthread(vaddr_t epc, unsigned code, vaddr_t vaddr)
 {
 	int sig = 0;
+    spinlock_acquire(&curproc->p_lock);
+    struct proc *proc = curproc;
+    spinlock_release(&curproc->p_lock);
 
+    proc->p_exitcode = code;
 	KASSERT(code < NTRAPCODES);
 	switch (code) {
 	    case EX_IRQ:
@@ -84,37 +90,47 @@ kill_curthread(vaddr_t epc, unsigned code, vaddr_t vaddr)
 		/* should not be seen */
 		KASSERT(0);
 		sig = SIGABRT;
+        proc->p_exitstatus = _MKWAIT_SIG(sig);
 		break;
 	    case EX_MOD:
 	    case EX_TLBL:
 	    case EX_TLBS:
 		sig = SIGSEGV;
+        proc->p_exitstatus = _MKWAIT_SIG(sig);
 		break;
 	    case EX_ADEL:
 	    case EX_ADES:
 		sig = SIGBUS;
+        proc->p_exitstatus = _MKWAIT_SIG(sig);
 		break;
 	    case EX_BP:
 		sig = SIGTRAP;
+        proc->p_exitstatus = _MKWAIT_SIG(sig);
 		break;
 	    case EX_RI:
 		sig = SIGILL;
+        proc->p_exitstatus = _MKWAIT_SIG(sig);
 		break;
 	    case EX_CPU:
 		sig = SIGSEGV;
+        proc->p_exitstatus = _MKWAIT_SIG(sig);
 		break;
 	    case EX_OVF:
 		sig = SIGFPE;
+        proc->p_exitstatus = _MKWAIT_SIG(sig);
 		break;
 	}
 
 	/*
 	 * You will probably want to change this.
 	 */
-
+    
 	kprintf("Fatal user mode trap %u sig %d (%s, epc 0x%x, vaddr 0x%x)\n",
 		code, sig, trapcodenames[code], epc, vaddr);
-	panic("I don't know how to handle this\n");
+
+    V(curproc->p_sem);
+    thread_exit();
+	/* panic("I don't know how to handle this\n"); */
 }
 
 /*
