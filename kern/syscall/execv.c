@@ -14,7 +14,7 @@
 
 
 int
-sys_execv(const_userptr_t program, char **args)
+sys_execv(const_userptr_t program, char **args, int *retval)
 {
     int result;
     unsigned proglen, arglen;
@@ -29,12 +29,14 @@ sys_execv(const_userptr_t program, char **args)
     int argc = 0, i;
 
     if (program == NULL || args == NULL) {
-        return EFAULT;
+        *retval = EFAULT;
+		return -1;
     }
 
     kprogram = kmalloc(64);
     if (kprogram == NULL) {
-        return ENOMEM;
+        *retval = ENOMEM;
+		return -1;
     }
     result = copyinstr(program, kprogram, 64, &proglen);
     if (result) {
@@ -67,7 +69,8 @@ sys_execv(const_userptr_t program, char **args)
         if (kargs[i] == NULL) {
             kfree(kprogram);
             kfree(kargs[i]);       /* leak */
-            return ENOMEM;
+            *retval = ENOMEM;
+			return -1;
         }
         argc++;
     }
@@ -76,7 +79,8 @@ sys_execv(const_userptr_t program, char **args)
 
     result = vfs_open(kprogram, O_RDONLY, 0, &v);
     if (result) {
-        return result;
+		*retval = result;
+		return -1;
     }
 
     as = proc_getas();
@@ -90,7 +94,8 @@ sys_execv(const_userptr_t program, char **args)
         vfs_close(v);
         kfree(kprogram);
         kfree(kargs);
-        return ENOMEM;
+        *retval = ENOMEM;
+		return -1;
     }
 
     proc_setas(as);
@@ -110,7 +115,8 @@ sys_execv(const_userptr_t program, char **args)
     if (result) {
         kfree(kprogram);
         kfree(kargs);
-        return result;
+		*retval = result;
+        return -1;
     }
 
     argptr = stackptr;
@@ -133,7 +139,8 @@ sys_execv(const_userptr_t program, char **args)
         stackptr -= 4;
         result = copyout(&argptr, (userptr_t)stackptr, sizeof argptr);
         if (result) {
-            return result;
+			*retval = result;
+            return -1;
         }
         while (stringleft) {
             char strtocopy[4] = {0};
@@ -149,7 +156,8 @@ sys_execv(const_userptr_t program, char **args)
             /* kprintf("\n"); */
             result = copyout(strtocopy, (userptr_t)argptr, sizeof(uint32_t));
             if (result) {
-                return result;
+				*retval = result;
+            	return -1; 
             }
             argptr += 4;
         }
@@ -159,5 +167,6 @@ sys_execv(const_userptr_t program, char **args)
     kfree(kargs);
     enter_new_process(argc, (userptr_t)stackptr, NULL, stackptr, entrypoint);
 
-    return EINVAL;
+    *retval = EINVAL;
+	return -1;
 }

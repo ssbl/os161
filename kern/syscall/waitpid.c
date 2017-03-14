@@ -12,7 +12,7 @@
 #include <proctable.h>
 
 pid_t
-sys_waitpid (pid_t pid, userptr_t status,int options)
+sys_waitpid (pid_t pid, userptr_t status, int options, int *retval)
 {
 	int result;
     bool nostatus = false;
@@ -20,7 +20,8 @@ sys_waitpid (pid_t pid, userptr_t status,int options)
 
 	if (options != 0)
 	{
-		return EINVAL;
+		*retval = EINVAL;
+		return -1;
 	}	
 
 	if (status == NULL)
@@ -36,10 +37,12 @@ sys_waitpid (pid_t pid, userptr_t status,int options)
     child = proctable_get(proctable, pid);
     if (child == NULL) {
         lock_release(proctable->pt_lock);
-        return ESRCH;
+        *retval = ESRCH;
+		return -1;
     } else if (child->p_ppid != parent->p_pid) {
         lock_release(proctable->pt_lock);
-        return ECHILD;
+        *retval = ECHILD;
+		return -1;
     }
 
     lock_release(proctable->pt_lock);
@@ -49,7 +52,8 @@ sys_waitpid (pid_t pid, userptr_t status,int options)
             result = copyout(&child->p_exitstatus, status, sizeof(int));
             if (result) {
                 V(parent->p_sem);
-                return result;
+                *retval = result;
+				return -1;
             }
         }
     }
