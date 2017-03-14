@@ -41,17 +41,27 @@ sys_execv(const_userptr_t program, char **args, int *retval)
     result = copyinstr(program, kprogram, 64, &proglen);
     if (result) {
         kfree(kprogram);
-        return result;
+        *retval = result;
+        return -1;
     }
     /* kprintf("got %s\n", (char *)kprogram); */
 
     kargs = kmalloc(128);
     if (kargs == NULL) {
         kfree(kprogram);
-        return result;
+        *retval = result;
+        return -1;
     }
 
     for (i = 0; ; i++) {
+        result = copyin((const_userptr_t)((vaddr_t)args + i), arg, 4);
+        if (result) {
+            kfree(kprogram);
+            kfree(kargs);
+            *retval = result;
+            return -1;
+        }
+
         if (args[i] == NULL) {
             break;
         }
@@ -61,7 +71,8 @@ sys_execv(const_userptr_t program, char **args, int *retval)
         if (result) {
             kfree(kprogram);
             kfree(kargs);
-            return result;
+            *retval = result;
+            return -1;
         }
 
         /* kprintf("got arg %d: %s\n", i, arg); */
@@ -106,7 +117,8 @@ sys_execv(const_userptr_t program, char **args, int *retval)
         vfs_close(v);
         kfree(kprogram);
         kfree(kargs);
-        return result;
+        *retval = result;
+        return -1;
     }
 
     vfs_close(v);

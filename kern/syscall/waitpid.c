@@ -51,9 +51,8 @@ sys_waitpid (pid_t pid, userptr_t status, int options, int *retval)
         if (!nostatus) {
             result = copyout(&child->p_exitstatus, status, sizeof(int));
             if (result) {
-                V(parent->p_sem);
+                /* V(parent->p_sem); */
                 *retval = result;
-				return -1;
             }
         }
     }
@@ -61,6 +60,9 @@ sys_waitpid (pid_t pid, userptr_t status, int options, int *retval)
     lock_acquire(proctable->pt_lock);
     proctable_remove(proctable, child->p_pid);
     lock_release(proctable->pt_lock);
+    if (retval) {
+        return -1;
+    }
 
     return pid;
 }
