@@ -34,6 +34,9 @@
 #include <cdefs.h> /* for __DEAD */
 struct trapframe; /* from <machine/trapframe.h> */
 
+char *arg;
+struct lock *arglock;
+
 /*
  * The system call dispatcher.
  */

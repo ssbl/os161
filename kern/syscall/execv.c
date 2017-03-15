@@ -11,7 +11,10 @@
 #include <syscall.h>
 #include <mips/trapframe.h>
 #include <addrspace.h>
+#include <limits.h>
 
+
+char *arg = NULL;
 
 int
 sys_execv(const_userptr_t program, char **args, int *retval)
@@ -22,8 +25,8 @@ sys_execv(const_userptr_t program, char **args, int *retval)
     struct addrspace *as;
     vaddr_t entrypoint, stackptr, argptr;
     void *kprogram = NULL;
-    char **kargs;
-    char arg[1024];
+    char **kargs, **kptr;
+    /* char *arg; */
     /* char *kp_ptr = kprogram, *ka_ptr = kargs; */
 
     int argc = 0, i;
@@ -31,6 +34,14 @@ sys_execv(const_userptr_t program, char **args, int *retval)
     if (program == NULL || args == NULL) {
         *retval = EFAULT;
 		return -1;
+    }
+
+    if (arg == NULL) {
+        arg = kmalloc(ARG_MAX * sizeof(char));
+        if (arg == NULL) {
+            *retval = ENOMEM;
+            return -1;
+        }
     }
 
     kprogram = kmalloc(64);
@@ -46,12 +57,13 @@ sys_execv(const_userptr_t program, char **args, int *retval)
     }
     /* kprintf("got %s\n", (char *)kprogram); */
 
-    kargs = kmalloc(128);
+    kargs = kmalloc(201);
     if (kargs == NULL) {
         kfree(kprogram);
         *retval = result;
         return -1;
     }
+    kptr = kargs;
 
     for (i = 0; ; i++) {
         result = copyin((const_userptr_t)((vaddr_t)args + i), arg, 4);
@@ -67,7 +79,7 @@ sys_execv(const_userptr_t program, char **args, int *retval)
         }
 
         result = copyinstr((const_userptr_t)(args[i]),
-                           arg, sizeof(arg), &arglen);
+                           arg, ARG_MAX, &arglen);
         if (result) {
             kfree(kprogram);
             kfree(kargs);
@@ -76,14 +88,24 @@ sys_execv(const_userptr_t program, char **args, int *retval)
         }
 
         /* kprintf("got arg %d: %s\n", i, arg); */
-        kargs[i] = kstrdup(arg);
+        if (kptr == NULL) {
+            kptr = kmalloc(50);
+            if (kptr == NULL) {
+                *retval = ENOMEM;
+                return -1;
+            }
+        }
+
+        kargs[i] = arg;
         if (kargs[i] == NULL) {
             kfree(kprogram);
             kfree(kargs[i]);       /* leak */
             *retval = ENOMEM;
 			return -1;
         }
+        arg = arg + arglen + 1;
         argc++;
+        kptr += sizeof(char *);
     }
             
     /* kprintf("argc = %d\n", argc - 1); */
