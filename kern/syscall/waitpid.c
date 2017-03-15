@@ -46,6 +46,11 @@ sys_waitpid (pid_t pid, userptr_t status, int options, int *retval)
     }
 
     lock_release(proctable->pt_lock);
+    /* lock_acquire(child->p_lk);
+     * if (child->p_exitcode == -1) {
+     *     cv_wait(child->p_cv, child->p_lk);
+     * } */
+    kprintf("child = %d\n", child->p_pid);
     P(child->p_sem);
     if (child->p_exitcode >= 0) {
         if (!nostatus) {
@@ -56,6 +61,7 @@ sys_waitpid (pid_t pid, userptr_t status, int options, int *retval)
             }
         }
     }
+    /* lock_release(child->p_lk); */
     /* V(parent->p_sem); */
     lock_acquire(proctable->pt_lock);
     /* kprintf("child: %d\n", child->p_pid); */

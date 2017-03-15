@@ -28,6 +28,7 @@ sys_fork(struct trapframe *tf, int *retval)
     struct filetable *curft;
     struct filetable *newft;
 
+    lock_acquire(proctable->pt_lock);
     spinlock_acquire(&curproc->p_lock);
     proc = curproc;
     VOP_INCREF(curproc->p_cwd);
@@ -36,7 +37,6 @@ sys_fork(struct trapframe *tf, int *retval)
     ppid = curproc->p_pid;
     spinlock_release(&curproc->p_lock);
 
-    lock_acquire(proctable->pt_lock);
     newproc = proc_create("<child>");
     if (newproc == NULL) {
         lock_release(proctable->pt_lock);

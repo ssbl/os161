@@ -119,9 +119,13 @@ proc_create(const char *name)
         return NULL;
     }        
 
+    proc->p_lk = lock_create("p_lk");
+    proc->p_cv = cv_create("p_cv");
+
     proc->p_exitcode = -1;
     proc->p_exitstatus = -1;
     proc->p_parent = NULL;
+    proc->p_ppid = 1;
 	return proc;
 }
 
@@ -292,6 +296,12 @@ proc_create_runprogram(const char *name)
 		newproc->p_cwd = curproc->p_cwd;
 	}
 	spinlock_release(&curproc->p_lock);
+
+    newproc->p_sem = sem_create("rp_sem", 0);
+    if (newproc->p_sem == NULL) {
+        kfree(newproc);         /* leak */
+        return NULL;
+    }
 
 	return newproc;
 }

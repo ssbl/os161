@@ -79,6 +79,8 @@ struct proc {
 	struct filetable *p_filetable; /* process filetable */
     int p_exitstatus;
     int p_exitcode;
+    struct lock *p_lk;
+    struct cv *p_cv;
     struct semaphore *p_sem;
     struct proc *p_parent;
 };

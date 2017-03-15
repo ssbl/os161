@@ -14,7 +14,7 @@
 #include <limits.h>
 
 
-char *arg = NULL;
+char *arg, *argstart;
 
 int
 sys_execv(const_userptr_t program, char **args, int *retval)
@@ -26,6 +26,7 @@ sys_execv(const_userptr_t program, char **args, int *retval)
     vaddr_t entrypoint, stackptr, argptr;
     void *kprogram = NULL;
     char **kargs, **kptr;
+    char testbuf[1];
     /* char *arg; */
     /* char *kp_ptr = kprogram, *ka_ptr = kargs; */
 
@@ -42,6 +43,7 @@ sys_execv(const_userptr_t program, char **args, int *retval)
             *retval = ENOMEM;
             return -1;
         }
+        argstart = arg;
     }
 
     kprogram = kmalloc(64);
@@ -66,7 +68,7 @@ sys_execv(const_userptr_t program, char **args, int *retval)
     kptr = kargs;
 
     for (i = 0; ; i++) {
-        result = copyin((const_userptr_t)((vaddr_t)args + i), arg, 4);
+        result = copyin((const_userptr_t)((vaddr_t)args + i), testbuf, 1);
         if (result) {
             kfree(kprogram);
             kfree(kargs);
@@ -91,6 +93,7 @@ sys_execv(const_userptr_t program, char **args, int *retval)
         if (kptr == NULL) {
             kptr = kmalloc(50);
             if (kptr == NULL) {
+                kfree(kprogram);
                 *retval = ENOMEM;
                 return -1;
             }
@@ -107,7 +110,7 @@ sys_execv(const_userptr_t program, char **args, int *retval)
         argc++;
         kptr += sizeof(char *);
     }
-            
+    arg = argstart;
     /* kprintf("argc = %d\n", argc - 1); */
 
     result = vfs_open(kprogram, O_RDONLY, 0, &v);
@@ -118,11 +121,11 @@ sys_execv(const_userptr_t program, char **args, int *retval)
 		return -1;
     }
 
-    as = proc_getas();
-    if (as != NULL) {
-        as_deactivate();
-        as_destroy(as);
-    }
+    /* as = proc_getas();
+     * if (as != NULL) {
+     *     as_deactivate();
+     *     as_destroy(as);
+     * } */
 
     as = as_create();
     if (as == NULL) {

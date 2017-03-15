@@ -34,7 +34,7 @@
 #include <cdefs.h> /* for __DEAD */
 struct trapframe; /* from <machine/trapframe.h> */
 
-char *arg;
+char *arg, *argstart;
 struct lock *arglock;
 
 /*
