@@ -212,7 +212,7 @@ proc_destroy(struct proc *proc)
 	KASSERT(proc->p_numthreads == 0);
 	spinlock_cleanup(&proc->p_lock);
 
-    /* if (proc->p_filetable != NULL) {
+    /* if (proc->p_pid > 1) {
      *     filetable_destroy(proc->p_filetable);
      * } */
 	kfree(proc->p_name);

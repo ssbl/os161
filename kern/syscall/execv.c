@@ -59,7 +59,7 @@ sys_execv(const_userptr_t program, char **args, int *retval)
     }
     /* kprintf("got %s\n", (char *)kprogram); */
 
-    kargs = kmalloc(201);
+    kargs = kmalloc(3850 * sizeof(char *));
     if (kargs == NULL) {
         kfree(kprogram);
         *retval = result;
@@ -88,10 +88,9 @@ sys_execv(const_userptr_t program, char **args, int *retval)
             *retval = result;
             return -1;
         }
-
         /* kprintf("got arg %d: %s\n", i, arg); */
         if (kptr == NULL) {
-            kptr = kmalloc(1);
+            kptr = kmalloc(4);
             if (kptr == NULL) {
                 kfree(kprogram);
                 *retval = ENOMEM;

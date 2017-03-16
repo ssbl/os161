@@ -35,7 +35,10 @@ sys__exit(int exitcode)
     proc->p_exitstatus = code;
     proc->p_exitcode = exitcode;
 
-    /* if (proc->p_parent != NULL) */
+    /* filetable_destroy(proc->p_filetable); */
+
+    /* if (proc->p_parent != NULL)
+     *     V(proc->p_parent->p_sem); */
     V(proc->p_sem);
     proc_remthread(cur);
     /* exited, wait for signal from waitpid */
