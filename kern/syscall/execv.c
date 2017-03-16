@@ -46,7 +46,7 @@ sys_execv(const_userptr_t program, char **args, int *retval)
         argstart = arg;
     }
 
-    kprogram = kmalloc(64);
+    kprogram = kmalloc(20);
     if (kprogram == NULL) {
         *retval = ENOMEM;
 		return -1;
@@ -91,7 +91,7 @@ sys_execv(const_userptr_t program, char **args, int *retval)
 
         /* kprintf("got arg %d: %s\n", i, arg); */
         if (kptr == NULL) {
-            kptr = kmalloc(50);
+            kptr = kmalloc(1);
             if (kptr == NULL) {
                 kfree(kprogram);
                 *retval = ENOMEM;
@@ -102,11 +102,11 @@ sys_execv(const_userptr_t program, char **args, int *retval)
         kargs[i] = arg;
         if (kargs[i] == NULL) {
             kfree(kprogram);
-            kfree(kargs[i]);       /* leak */
+            kfree(kargs);
             *retval = ENOMEM;
 			return -1;
         }
-        arg = arg + arglen + 1;
+        arg = arg + arglen;
         argc++;
         kptr += sizeof(char *);
     }

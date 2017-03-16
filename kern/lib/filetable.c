@@ -53,16 +53,18 @@ file_entry_destroy(struct file_entry *fentry)
 	KASSERT(fentry != NULL);
 
     lock_acquire(fentry->f_lk);
-    if (fentry->f_refcount <= 1) {
+    fentry->f_refcount--;
+    if (fentry->f_refcount == 0) {
         /* kfree(fentry->f_name); */
         /* vfs_close(fentry->f_node); */
+        kprintf("killing %s..", fentry->f_name);
         lock_release(fentry->f_lk);
         /* lock_destroy(fentry->f_lk); */
-        /* kfree(fentry);
-         * fentry = NULL; */
+        kfree(fentry);
+        fentry = NULL;
     } else {
-        fentry->f_refcount -= 1;
         lock_release(fentry->f_lk);
+        /* fentry = NULL; */
     }
 }
 
@@ -158,7 +160,7 @@ filetable_set(struct filetable *ft, int fd, struct file_entry *fentry)
 {
     KASSERT(ft != NULL);
 
-    int ret;
+    int i, ret;
 
     if (fd < 0 || fd >= MAXFDS) {
         return EBADF;
@@ -170,11 +172,18 @@ filetable_set(struct filetable *ft, int fd, struct file_entry *fentry)
         if (ret) {
             return ret;
         }
+        for (i = ft->ft_maxfd + 1; i < fd; i++) {
+            file_entryarray_set(ft->ft_fdarray, fd, NULL);
+        }
         ft->ft_maxfd = fd;
     }
 
     file_entryarray_set(ft->ft_fdarray, fd, fentry);
-    ft->ft_openfds += 1;
+
+    if (fentry != NULL) {
+        fentry->f_refcount++;
+        ft->ft_openfds += 1;
+    }
 
     return 0;
 }
@@ -264,6 +273,7 @@ filetable_add(struct filetable *ft, struct file_entry *fentry, int *retval)
         file_entryarray_set(ft->ft_fdarray, i, fentry);
     }
 
+    fentry->f_refcount++;
     ft->ft_maxfd = i > ft->ft_maxfd ? i : ft->ft_maxfd;
     ft->ft_openfds += 1;
     return i;
@@ -295,10 +305,9 @@ filetable_copy(struct filetable *src)
         fentry = filetable_get(src, i);
         /* if (fentry)
          *     kprintf("got %d (%s)\n", i, fentry->f_name); */
-        if (fentry != NULL) {
+        /* if (fentry != NULL) { */
             filetable_set(dest, i, fentry);
-            fentry->f_refcount += 1;
-        }
+        /* } */
     }
 
     KASSERT(src->ft_maxfd == dest->ft_maxfd);
@@ -319,10 +328,10 @@ filetable_destroy(struct filetable *ft)
     for (i = 0; i <= ft->ft_maxfd; i++) {
         fentry = filetable_get(ft, i);
         if (fentry != NULL) {
-            /* kprintf("removing %d...", i); */
+            kprintf("removing %d...", i);
             filetable_remove(ft, i);
-            /* kprintf("done\n"); */
-        }
+            kprintf("done\n");
+        }            
     }
 
     kfree(ft);

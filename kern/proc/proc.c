@@ -51,7 +51,7 @@
 #include <fs.h>
 #include <vnode.h>
 #include <proctable.h>
-#include "filetable.h"
+#include <filetable.h>
 
 /*
  * The process for the kernel; this holds all the kernel-only threads.
@@ -212,9 +212,9 @@ proc_destroy(struct proc *proc)
 	KASSERT(proc->p_numthreads == 0);
 	spinlock_cleanup(&proc->p_lock);
 
-    if (proc->p_ppid > 1) {
-        filetable_destroy(proc->p_filetable);
-    }
+    /* if (proc->p_filetable != NULL) {
+     *     filetable_destroy(proc->p_filetable);
+     * } */
 	kfree(proc->p_name);
 	kfree(proc);
 }
@@ -302,6 +302,18 @@ proc_create_runprogram(const char *name)
         kfree(newproc);         /* leak */
         return NULL;
     }
+
+    newproc->p_filetable = filetable_create();
+    if (newproc->p_filetable == NULL) {
+        panic("couldn't copy filetable for runprogram\n");
+    }
+
+    newproc->p_ppid = 1;
+    lock_acquire(proctable->pt_lock);
+    if (proctable_add(proctable, newproc) != 0) {
+        panic("couldn't create process for runprogram\n");
+    }
+    lock_release(proctable->pt_lock);
 
 	return newproc;
 }

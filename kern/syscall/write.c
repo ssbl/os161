@@ -65,7 +65,6 @@ sys_write(int fd, const_userptr_t user_buf, size_t buflen, int *retval)
     }
 
     lock_acquire(fentry->f_lk);
-    fentry->f_refcount += 1;
     vnode = fentry->f_node;
     uio.uio_offset = fentry->f_offset;
 
@@ -86,7 +85,6 @@ write:
 
     /* update offset */
     fentry->f_offset += buflen;
-    fentry->f_refcount -= 1;
     lock_release(fentry->f_lk);
 
     kfree(kbuffer);
