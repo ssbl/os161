@@ -299,8 +299,7 @@ proc_create_runprogram(const char *name)
 
     newproc->p_sem = sem_create("rp_sem", 0);
     if (newproc->p_sem == NULL) {
-        kfree(newproc);         /* leak */
-        return NULL;
+        panic("couldn't create semaphore for runprogram\n");
     }
 
     newproc->p_filetable = filetable_create();
