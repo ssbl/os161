@@ -58,9 +58,6 @@ sys_dup2(int oldfd, int newfd, int *retval)
         lock_release(fentry_oldfd->f_lk);
         return -1;
     }
-    filetable->ft_maxfd = newfd > filetable->ft_maxfd ?
-        newfd : filetable->ft_maxfd;
-    filetable->ft_openfds += 1;
     lock_release(fentry_oldfd->f_lk);
 
     return newfd;
