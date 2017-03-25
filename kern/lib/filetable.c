@@ -8,6 +8,7 @@
 #include <vnode.h>
 #include <proc.h>
 #include <current.h>
+#include <limits.h>
 
 #include "filetable.h"
 
@@ -55,11 +56,11 @@ file_entry_destroy(struct file_entry *fentry)
     lock_acquire(fentry->f_lk);
     fentry->f_refcount--;
     if (fentry->f_refcount == 0) {
-        /* kfree(fentry->f_name); */
         /* vfs_close(fentry->f_node); */
         kprintf("killing %s..", fentry->f_name);
+        kfree(fentry->f_name);
         lock_release(fentry->f_lk);
-        /* lock_destroy(fentry->f_lk); */
+        lock_destroy(fentry->f_lk);
         kfree(fentry);
         fentry = NULL;
     } else {
@@ -79,10 +80,48 @@ getconsolevnode()
 	return f_node;
 }
 
+/*
+ * Bitset functions
+ */
+static uint64_t *
+bitset_init(void)
+{
+    uint64_t *bitset = kmalloc(2 * sizeof(uint64_t));
+    if (bitset == NULL) {
+        return NULL;
+    }
+
+    bitset[0] = 0;
+    bitset[1] = 0;
+
+    return bitset;
+}
+
+static void
+bitset_set(struct filetable *ft, int fd)
+{
+    int adjusted_fd = fd < 64 ? fd : 127 - fd;
+    ft->ft_bitset[fd >= 64] |= 1 << adjusted_fd;
+}
+
+static void
+bitset_clear(struct filetable *ft, int fd)
+{
+    int adjusted_fd = fd < 64 ? fd : 127 - fd;
+    ft->ft_bitset[fd >= 64] &= ~(1 << adjusted_fd);
+}
+
+static bool
+bitset_isset(struct filetable *ft, int fd)
+{
+    int adjusted_fd = fd < 64 ? fd : 127 - fd;
+    return ((ft->ft_bitset[fd >= 64] >> adjusted_fd) & 1) ? true : false;
+}
+
 int
 filetable_checkfd(struct filetable *ft, int fd)
 {
-    if (fd < 0 || fd >= MAXFDS) {
+    if (fd < 0 || fd >= OPEN_MAX) {
         return -1;
     } else if (fd > ft->ft_maxfd) {
         return -1;
@@ -118,9 +157,16 @@ filetable_create(void)
         console_vnode = getconsolevnode();
     }
 
+    ft->ft_bitset = bitset_init();
+    if (ft->ft_bitset == NULL) {
+        kfree(ft);
+        return NULL;
+    }
+
     ret = file_entryarray_setsize(ft->ft_fdarray, 3);
     if (ret) {
         file_entryarray_destroy(ft->ft_fdarray);
+        kfree(ft->ft_bitset);
         kfree(ft);
         return NULL;
     }
@@ -135,6 +181,7 @@ filetable_create(void)
 
     ft->ft_maxfd = 2;
     ft->ft_openfds = 3;
+    ft->ft_bitset[0] = 7;         /* set the first 3 bits */
 
     return ft;
 }
@@ -151,18 +198,14 @@ filetable_get(struct filetable *ft, int fd)
     return file_entryarray_get(ft->ft_fdarray, fd);
 }
 
-/*
- * assumes that fd points to an empty spot in the table.
- * if that spot isn't free, we get a leak.
- */
 int
 filetable_set(struct filetable *ft, int fd, struct file_entry *fentry)
 {
     KASSERT(ft != NULL);
 
-    int i, ret;
+    int ret;
 
-    if (fd < 0 || fd >= MAXFDS) {
+    if (fd < 0 || fd >= OPEN_MAX) {
         return EBADF;
     }
 
@@ -172,9 +215,6 @@ filetable_set(struct filetable *ft, int fd, struct file_entry *fentry)
         if (ret) {
             return ret;
         }
-        for (i = ft->ft_maxfd + 1; i < fd; i++) {
-            file_entryarray_set(ft->ft_fdarray, fd, NULL);
-        }
         ft->ft_maxfd = fd;
     }
 
@@ -183,6 +223,7 @@ filetable_set(struct filetable *ft, int fd, struct file_entry *fentry)
     if (fentry != NULL) {
         fentry->f_refcount++;
         ft->ft_openfds += 1;
+        bitset_set(ft, fd);
     }
 
     return 0;
@@ -223,6 +264,7 @@ filetable_remove(struct filetable *ft, int fd)
         }
     }
     ft->ft_openfds -= 1;
+    bitset_clear(ft, fd);
 
     return 0;
 }
@@ -239,7 +281,7 @@ filetable_add(struct filetable *ft, struct file_entry *fentry, int *retval)
     KASSERT(fentry != NULL);
 
     int i, ret, arr_size;
-    struct file_entry *f;
+    /* struct file_entry *f; */
 
     if (ft->ft_maxfd == -1) {
         ret = filetable_set(ft, 0, fentry);
@@ -250,15 +292,15 @@ filetable_add(struct filetable *ft, struct file_entry *fentry, int *retval)
     }
 
     for (i = 0; i < ft->ft_maxfd; i++) {
-        f = file_entryarray_get(ft->ft_fdarray, i);
-        if (f == NULL) {
+        /* f = file_entryarray_get(ft->ft_fdarray, i); */
+        if (!bitset_isset(ft, i)) {
             file_entryarray_set(ft->ft_fdarray, i, fentry);
             break;
         }
     }
 
     if (i == ft->ft_maxfd) {
-        if (i == MAXFDS - 1) {  /* filetable full */
+        if (i == OPEN_MAX - 1) {  /* filetable full */
             *retval = EMFILE;
             return -1;
         }
@@ -276,6 +318,7 @@ filetable_add(struct filetable *ft, struct file_entry *fentry, int *retval)
     fentry->f_refcount++;
     ft->ft_maxfd = i > ft->ft_maxfd ? i : ft->ft_maxfd;
     ft->ft_openfds += 1;
+    bitset_set(ft, i);
     return i;
 }
 
@@ -292,26 +335,36 @@ filetable_copy(struct filetable *src)
     if (dest == NULL) {
         return NULL;
     }
+    dest->ft_bitset = bitset_init();
+    if (dest->ft_bitset == NULL) {
+        kfree(dest);
+        return NULL;
+    }
+
     dest->ft_maxfd = -1;
     dest->ft_openfds = 0;
 
     dest->ft_fdarray = file_entryarray_create();
     if (dest->ft_fdarray == NULL) {
+        kfree(dest->ft_bitset);
         kfree(dest);
         return NULL;
     }
 
     for (i = 0; i <= src->ft_maxfd; i++) {
-        fentry = filetable_get(src, i);
+        /* fentry = filetable_get(src, i); */
         /* if (fentry)
          *     kprintf("got %d (%s)\n", i, fentry->f_name); */
-        /* if (fentry != NULL) { */
+        if (bitset_isset(src, i)) {
+            fentry = filetable_get(src, i);
             filetable_set(dest, i, fentry);
-        /* } */
+        }
     }
 
     KASSERT(src->ft_maxfd == dest->ft_maxfd);
     KASSERT(src->ft_openfds == dest->ft_openfds);
+    KASSERT(src->ft_bitset[0] == dest->ft_bitset[0]);
+    KASSERT(src->ft_bitset[1] == dest->ft_bitset[1]);
 
     return dest;
 }
@@ -322,18 +375,19 @@ filetable_destroy(struct filetable *ft)
     KASSERT(ft != NULL);
 
     int i;
-    struct file_entry *fentry;
+    /* struct file_entry *fentry; */
 
     /* kprintf("maxfd = %d\n", ft->ft_maxfd); */
     for (i = 0; i <= ft->ft_maxfd; i++) {
-        fentry = filetable_get(ft, i);
-        if (fentry != NULL) {
+        /* fentry = filetable_get(ft, i); */
+        if (bitset_isset(ft, i)) {
             kprintf("removing %d...", i);
             filetable_remove(ft, i);
             kprintf("done\n");
-        }            
+        }
     }
 
+    kfree(ft->ft_bitset);
     kfree(ft);
     ft = NULL;
 }

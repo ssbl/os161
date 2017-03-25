@@ -5,7 +5,6 @@
 #include <synch.h>
 #include <vnode.h>
 
-#define MAXFDS 64
 #define FILENAME_MAXLEN 64
 #ifndef FILETABLE_INLINE
 #define FILETABLE_INLINE INLINE
@@ -34,7 +33,8 @@ struct filetable {
     struct file_entryarray *ft_fdarray; /* array of file handles */
     int ft_maxfd;               /* highest open (non-null) fd */
     int ft_openfds;             /* number of open fds */
-    struct lock *ft_lock;
+    uint64_t *ft_bitset;
+    /* struct lock *ft_lock; */
 };
 
 struct file_entry *file_entry_create(const char *name, int openflags,

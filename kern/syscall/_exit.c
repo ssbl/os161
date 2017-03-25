@@ -26,7 +26,7 @@ sys__exit(int exitcode)
     proc->p_exitstatus = code;
     proc->p_exitcode = exitcode;
 
-    /* filetable_destroy(proc->p_filetable); */
+    filetable_destroy(proc->p_filetable);
 
     proc_remthread(cur);
     V(proc->p_sem);
