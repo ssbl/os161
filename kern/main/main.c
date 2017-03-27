@@ -43,6 +43,7 @@
 #include <current.h>
 #include <synch.h>
 #include <vm.h>
+#include <coremap.h>
 #include <mainbus.h>
 #include <vfs.h>
 #include <device.h>
@@ -108,6 +109,9 @@ boot(void)
 
 	/* Early initialization. */
 	ram_bootstrap();
+    coremap_init();
+	vm_bootstrap();
+    kprintf("%d\n", coremap[53]->cme_is_pinned);
 	proc_bootstrap();
 	thread_bootstrap();
 	hardclock_bootstrap();
@@ -125,7 +129,6 @@ boot(void)
 	kheap_nextgeneration();
 
 	/* Late phase of initialization. */
-	vm_bootstrap();
 	kprintf_bootstrap();
 	thread_start_cpus();
 	test161_bootstrap();

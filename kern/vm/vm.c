@@ -18,8 +18,9 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 vaddr_t
 alloc_kpages(unsigned npages)
 {
-    (void)npages;
-    return 1;
+    /* (void)npages; */
+    /* return 1; */
+    return PADDR_TO_KVADDR(ram_stealmem(npages));
 }
 
 void

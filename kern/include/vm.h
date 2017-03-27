@@ -38,11 +38,18 @@
 
 
 #include <machine/vm.h>
+#include <spinlock.h>
 
 /* Fault-type arguments to vm_fault() */
 #define VM_FAULT_READ        0    /* A read was attempted */
 #define VM_FAULT_WRITE       1    /* A write was attempted */
 #define VM_FAULT_READONLY    2    /* A write to a readonly page was attempted*/
+
+struct vpage {
+    paddr_t vp_paddr;
+    off_t vp_swapaddr;
+    struct spinlock vp_lock;
+};
 
 
 /* Initialization function */
