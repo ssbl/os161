@@ -6,34 +6,45 @@
 #include <coremap.h>
 
 
+int numpages = 0;
 struct cm_entry **coremap;
 
 void
 coremap_init(void)
 {
-    int entries, pages_needed, ptr_pages_needed;
-    paddr_t ramsize, start;/* , firstfree; */
-    /* struct cm_entry *cme = NULL; */
+    int i;
+    int kernel_pages;
+    int entries, pages_needed, ptr_pages_needed, vpage_pages_needed;
+    paddr_t ramsize, pageaddr, cmeaddr;
+    struct cm_entry *cme = NULL;
 
     ramsize = ram_getsize();
     entries = ramsize / PAGE_SIZE;
 
     pages_needed = (entries * sizeof(struct cm_entry)) / PAGE_SIZE;
     ptr_pages_needed = (entries * sizeof(struct cm_entry *)) / PAGE_SIZE;
+    vpage_pages_needed = (entries * sizeof(struct vpage)) / PAGE_SIZE;
 
-    /* Allocate an extra page just to be safe. */
+    numpages = ram_stealmem(vpage_pages_needed);
+    kernel_pages = numpages / PAGE_SIZE;
+    pageaddr = numpages;
+    cmeaddr = ram_stealmem(pages_needed);
     coremap = (struct cm_entry **)
-        PADDR_TO_KVADDR(ram_stealmem(ptr_pages_needed + 1));
-    /* firstfree = ram_getfirstfree();
-     * (void)firstfree; */
-    /* Check page alignment. If this fails, we can't boot. */
-    /* KASSERT(firstfree % PAGE_SIZE == 0); */
+        PADDR_TO_KVADDR(ram_stealmem(ptr_pages_needed));
+    numpages = kernel_pages + pages_needed
+        + ptr_pages_needed + vpage_pages_needed;
 
-    start = ram_stealmem(1);
-    for (int i = 0; i < pages_needed; i++) {
-        coremap[i] = (struct cm_entry *) PADDR_TO_KVADDR(start);
-        coremap[i]->cme_is_pinned = 1;
-        start += sizeof(struct cm_entry);
-        /* coremap[i]->cme_cpu_id = curcpu->c_number; */
+    for (i = 0; i < entries; i++) {
+        cme = (struct cm_entry *) PADDR_TO_KVADDR(cmeaddr);
+        cme->cme_page = (struct vpage *) PADDR_TO_KVADDR(pageaddr);
+        cme->cme_page->vp_paddr = i * PAGE_SIZE;
+        coremap[i] = cme;
+        if (i < numpages) {
+            cme->cme_is_kern_page = 1;
+            cme->cme_is_pinned = 1;
+        }
+        cmeaddr += sizeof(struct cm_entry);
+        pageaddr += sizeof(struct vpage);
     }
+    numpages = i;
 }

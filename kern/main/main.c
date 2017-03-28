@@ -111,7 +111,13 @@ boot(void)
 	ram_bootstrap();
     coremap_init();
 	vm_bootstrap();
-    kprintf("%d\n", coremap[53]->cme_is_pinned);
+    /* kprintf("%d\n", numpages); */
+    for (int i = 0; i<100; i++) {
+        if (coremap[i]->cme_is_pinned == 0) {
+            kprintf("%d\n", i);
+            break;
+        }
+    }
 	proc_bootstrap();
 	thread_bootstrap();
 	hardclock_bootstrap();

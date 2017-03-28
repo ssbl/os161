@@ -17,6 +17,7 @@ struct cm_entry {
  *     struct cm_entry *cm_pages;
  * }; */
 
+int numpages;
 struct cm_entry **coremap;
 
 void coremap_init(void);
