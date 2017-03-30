@@ -1,10 +1,11 @@
 #include <types.h>
 #include <vm.h>
+#include <coremap.h>
 
 void
 vm_bootstrap(void)
 {
-
+    /* numpages = (int)coremap_alloc_npages(10); */
 }
 
 int
@@ -20,7 +21,16 @@ alloc_kpages(unsigned npages)
 {
     /* (void)npages; */
     /* return 1; */
-    return PADDR_TO_KVADDR(ram_stealmem(npages));
+    /* return PADDR_TO_KVADDR(ram_stealmem(npages)); */
+    vaddr_t vaddr;
+
+    if (npages > 1) {
+        vaddr = coremap_alloc_npages(npages);
+    } else {
+        vaddr = coremap_alloc_page();
+    }
+
+    return PADDR_TO_KVADDR(vaddr);
 }
 
 void

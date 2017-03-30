@@ -111,13 +111,13 @@ boot(void)
 	ram_bootstrap();
     coremap_init();
 	vm_bootstrap();
-    /* kprintf("%d\n", numpages); */
-    for (int i = 0; i<100; i++) {
-        if (coremap[i]->cme_is_pinned == 0) {
-            kprintf("%d\n", i);
-            break;
-        }
-    }
+    /* kprintf("%d\n", (int)numpages);
+     * for (int i = 0; i<100; i++) {
+     *     if (!coremap[i]->cme_is_allocated) {
+     *         kprintf("i = %d, %d\n", i, (int)coremap[i]->cme_page->vp_paddr);
+     *         break;
+     *     }
+     * } */
 	proc_bootstrap();
 	thread_bootstrap();
 	hardclock_bootstrap();

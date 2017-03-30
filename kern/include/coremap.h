@@ -18,8 +18,11 @@ struct cm_entry {
  * }; */
 
 int numpages;
+int first_free_page;
 struct cm_entry **coremap;
 
 void coremap_init(void);
+paddr_t coremap_alloc_npages(unsigned n);
+paddr_t coremap_alloc_page(void);
 
 #endif  /* _COREMAP_H_ */
