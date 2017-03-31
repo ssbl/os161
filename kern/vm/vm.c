@@ -36,7 +36,10 @@ alloc_kpages(unsigned npages)
 void
 free_kpages(vaddr_t addr)
 {
-    (void)addr;
+    /* paddr_t paddr = addr - MIPS_KSEG0;
+     * 
+     * int page_number = paddr / PAGE_SIZE;
+     * coremap[page_number]->cme_is_allocated = 0; */
 }
 
 unsigned int

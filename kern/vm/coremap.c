@@ -106,6 +106,7 @@ coremap_alloc_page(void)
     for (i = first_free_page; i < entries; i++) {
         if (!coremap[i]->cme_is_allocated) {
             coremap[i]->cme_is_allocated = 1;
+            coremap[i]->cme_is_last_page = 1;
             break;
         }
     }
