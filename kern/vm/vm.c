@@ -22,15 +22,15 @@ alloc_kpages(unsigned npages)
     /* (void)npages; */
     /* return 1; */
     /* return PADDR_TO_KVADDR(ram_stealmem(npages)); */
-    vaddr_t vaddr;
+    paddr_t paddr;
 
     if (npages > 1) {
-        vaddr = coremap_alloc_npages(npages);
+        paddr = coremap_alloc_npages(npages);
     } else {
-        vaddr = coremap_alloc_page();
+        paddr = coremap_alloc_page();
     }
 
-    return PADDR_TO_KVADDR(vaddr);
+    return PADDR_TO_KVADDR(paddr);
 }
 
 void
