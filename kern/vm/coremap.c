@@ -8,7 +8,8 @@
 
 int numpages = 0, first_free_page = 0;
 struct cm_entry **coremap;
-int start_page = 85;
+int start_page = 0;
+
 void
 coremap_init(void)
 {
@@ -17,7 +18,7 @@ coremap_init(void)
     int entries, pages_needed, ptr_pages_needed, vpage_pages_needed;
     paddr_t ramsize, pageaddr, cmeaddr;
     struct cm_entry *cme = NULL;
-	
+
     ramsize = ram_getsize();
     entries = ramsize / PAGE_SIZE;
 
@@ -25,15 +26,20 @@ coremap_init(void)
     ptr_pages_needed = (entries * sizeof(struct cm_entry *)) / PAGE_SIZE;
     vpage_pages_needed = (entries * sizeof(struct vpage)) / PAGE_SIZE;
 
+    /* these values could be 0, set them to 1 if that's the case */
+    vpage_pages_needed = vpage_pages_needed == 0 ? 1 : vpage_pages_needed;
+    pages_needed = pages_needed == 0 ? 1: pages_needed;
+    ptr_pages_needed = ptr_pages_needed == 0 ? 1 : ptr_pages_needed;
+
     numpages = ram_stealmem(vpage_pages_needed);
     kernel_pages = numpages / PAGE_SIZE;
     pageaddr = numpages;
     cmeaddr = ram_stealmem(pages_needed);
     coremap = (struct cm_entry **)
-        PADDR_TO_KVADDR(ram_stealmem(ptr_pages_needed)); 
-	coremap_lock = (struct spinlock *) PADDR_TO_KVADDR(ram_stealmem(1));
-	numpages = kernel_pages + pages_needed
-        + ptr_pages_needed + vpage_pages_needed + 1;
+        PADDR_TO_KVADDR(ram_stealmem(ptr_pages_needed));
+    numpages = kernel_pages + pages_needed
+        + ptr_pages_needed + vpage_pages_needed;
+
     for (i = 0; i < entries; i++) {
         cme = (struct cm_entry *) PADDR_TO_KVADDR(cmeaddr);
         cme->cme_page = (struct vpage *) PADDR_TO_KVADDR(pageaddr);
@@ -47,8 +53,10 @@ coremap_init(void)
         cmeaddr += sizeof(struct cm_entry);
         pageaddr += sizeof(struct vpage);
     }
-	spinlock_init(coremap_lock);
+
+    spinlock_init(&coremap_lock);
     first_free_page = numpages;
+    start_page = numpages;
     numpages = i;
 }
 
@@ -57,15 +65,15 @@ coremap_nextfree(int current_index)
 {
     KASSERT(coremap != NULL);
     KASSERT(current_index > 0);
-	
-	int i;
+
+    int i;
 find_page:
-    for (i = current_index; i < 4096; i++) {
+    for (i = current_index; i < numpages; i++) {
         if (!coremap[i]->cme_is_allocated) {
             return i;
         }
     }
-	current_index = start_page;	
+    current_index = start_page;
     goto find_page;
 }
 
@@ -73,7 +81,7 @@ find_page:
 paddr_t
 coremap_alloc_npages(unsigned n)
 {
-    int entries = 4096;
+    int entries = numpages;
     int start = first_free_page;
     unsigned pages_found = 0;
 
@@ -81,7 +89,7 @@ coremap_alloc_npages(unsigned n)
         if (coremap[i]->cme_is_allocated) {
             pages_found = 0;
             start = coremap_nextfree(i);
-			i = start;
+            i = start;
         } else {
             pages_found++;
         }
@@ -106,7 +114,8 @@ coremap_alloc_npages(unsigned n)
 paddr_t
 coremap_alloc_page(void)
 {
-    int i, entries = 4096;
+    paddr_t paddr;
+    int i, entries = numpages;
 
     for (i = first_free_page; i < entries; i++) {
         if (!coremap[i]->cme_is_allocated) {
@@ -115,5 +124,11 @@ coremap_alloc_page(void)
             break;
         }
     }
-    return coremap[i]->cme_page->vp_paddr;
+
+    /* coremap[first_free_page]->cme_is_allocated = 1;
+     * coremap[first_free_page]->cme_is_last_page = 1; */
+    paddr = coremap[i]->cme_page->vp_paddr;
+
+    /* first_free_page = coremap_nextfree(first_free_page); */
+    return paddr;
 }

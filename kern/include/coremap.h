@@ -20,7 +20,7 @@ struct cm_entry {
 int numpages;
 int first_free_page;
 struct cm_entry **coremap;
-struct spinlock *coremap_lock;
+struct spinlock coremap_lock;
 
 void coremap_init(void);
 paddr_t coremap_alloc_npages(unsigned n);
