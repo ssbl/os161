@@ -10,6 +10,21 @@ int numpages = 0, first_free_page = 0;
 struct cm_entry **coremap;
 int start_page = 0;
 
+
+static int
+get_pagecount(int entries, size_t size_per_entry)
+{
+    int page_count;
+    int total_bytes = entries * size_per_entry;
+
+    page_count = total_bytes / PAGE_SIZE;
+    if (total_bytes % PAGE_SIZE != 0) {
+        page_count++;
+    }
+
+    return page_count;
+}
+
 void
 coremap_init(void)
 {
@@ -22,14 +37,9 @@ coremap_init(void)
     ramsize = ram_getsize();
     entries = ramsize / PAGE_SIZE;
 
-    pages_needed = (entries * sizeof(struct cm_entry)) / PAGE_SIZE;
-    ptr_pages_needed = (entries * sizeof(struct cm_entry *)) / PAGE_SIZE;
-    vpage_pages_needed = (entries * sizeof(struct vpage)) / PAGE_SIZE;
-
-    /* these values could be 0, set them to 1 if that's the case */
-    vpage_pages_needed = vpage_pages_needed == 0 ? 1 : vpage_pages_needed;
-    pages_needed = pages_needed == 0 ? 1: pages_needed;
-    ptr_pages_needed = ptr_pages_needed == 0 ? 1 : ptr_pages_needed;
+    pages_needed = get_pagecount(entries, sizeof(struct cm_entry));
+    ptr_pages_needed = get_pagecount(entries, sizeof(struct cm_entry *));
+    vpage_pages_needed = get_pagecount(entries, sizeof(struct vpage));
 
     numpages = ram_stealmem(vpage_pages_needed);
     kernel_pages = numpages / PAGE_SIZE;
