@@ -46,7 +46,6 @@ coremap_init(void)
         cme->cme_page->vp_paddr = i * PAGE_SIZE;
         coremap[i] = cme;
         if (i < numpages) {
-            cme->cme_is_kern_page = 1;
             cme->cme_is_pinned = 1;
             cme->cme_is_allocated = 1;
         }
