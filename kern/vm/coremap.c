@@ -9,10 +9,10 @@
 int numpages = 0, first_free_page = 0;
 struct cm_entry **coremap;
 int start_page = 0;
-
+int used_bytes = 0;
 
 static int
-get_pagecount(int entries, size_t size_per_entry)
+countpages(int entries, size_t size_per_entry)
 {
     int page_count;
     int total_bytes = entries * size_per_entry;
@@ -37,9 +37,9 @@ coremap_init(void)
     ramsize = ram_getsize();
     entries = ramsize / PAGE_SIZE;
 
-    pages_needed = get_pagecount(entries, sizeof(struct cm_entry));
-    ptr_pages_needed = get_pagecount(entries, sizeof(struct cm_entry *));
-    vpage_pages_needed = get_pagecount(entries, sizeof(struct vpage));
+    pages_needed = countpages(entries, sizeof(struct cm_entry));
+    ptr_pages_needed = countpages(entries, sizeof(struct cm_entry *));
+    vpage_pages_needed = countpages(entries, sizeof(struct vpage));
 
     numpages = ram_stealmem(vpage_pages_needed);
     kernel_pages = numpages / PAGE_SIZE;
@@ -66,6 +66,7 @@ coremap_init(void)
     spinlock_init(&coremap_lock);
     first_free_page = numpages;
     start_page = numpages;
+    used_bytes = numpages * PAGE_SIZE;
     numpages = i;
 }
 
@@ -87,6 +88,7 @@ find_page:
 }
 
 /* SLOW */
+/* Does not evict pages! */
 paddr_t
 coremap_alloc_npages(unsigned n)
 {
@@ -117,27 +119,31 @@ coremap_alloc_npages(unsigned n)
         first_free_page = coremap_nextfree(start);
     }
 
+    used_bytes += n * PAGE_SIZE;
     return coremap[start]->cme_page->vp_paddr;
 }
 
+/* Does not evict pages! */
 paddr_t
 coremap_alloc_page(void)
 {
-    paddr_t paddr;
+    paddr_t paddr = 0;
     int i, entries = numpages;
 
     for (i = first_free_page; i < entries; i++) {
         if (!coremap[i]->cme_is_allocated) {
             coremap[i]->cme_is_allocated = 1;
             coremap[i]->cme_is_last_page = 1;
+            paddr = coremap[i]->cme_page->vp_paddr;
+            used_bytes += PAGE_SIZE;
             break;
         }
     }
 
     /* coremap[first_free_page]->cme_is_allocated = 1;
      * coremap[first_free_page]->cme_is_last_page = 1; */
-    paddr = coremap[i]->cme_page->vp_paddr;
 
     /* first_free_page = coremap_nextfree(first_free_page); */
+
     return paddr;
 }

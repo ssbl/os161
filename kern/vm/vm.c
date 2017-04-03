@@ -30,6 +30,11 @@ alloc_kpages(unsigned npages)
         paddr = coremap_alloc_page();
     }
 	spinlock_release(&coremap_lock);
+
+    if (paddr == 0) {
+        return 0;
+    }
+
     return PADDR_TO_KVADDR(paddr);
 }
 
@@ -41,6 +46,7 @@ free_kpages(vaddr_t addr)
     int start = paddr / PAGE_SIZE;
 	spinlock_acquire(&coremap_lock);
 	for(int page_number = start ; ; page_number++) {
+        used_bytes -= PAGE_SIZE;
 		coremap[page_number]->cme_is_allocated = 0;
 		if (coremap[page_number]->cme_is_last_page == 1) {
 			coremap[page_number]->cme_is_last_page = 0;
@@ -53,7 +59,7 @@ free_kpages(vaddr_t addr)
 unsigned int
 coremap_used_bytes(void)
 {
-    return 1;
+    return used_bytes;
 }
 
 void

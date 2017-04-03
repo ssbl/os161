@@ -114,7 +114,7 @@ boot(void)
     kprintf("%d\n", numpages);
     for (int i = 0; i<100; i++) {
         if (!coremap[i]->cme_is_allocated) {
-            kprintf("%d == %d\n", i, first_free_page);
+            kprintf("%d == %d\n", i, first_free_page * PAGE_SIZE);
             break;
         }
     }
