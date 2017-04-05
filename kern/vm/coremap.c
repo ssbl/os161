@@ -9,7 +9,7 @@
 int numpages = 0, first_free_page = 0;
 struct cm_entry **coremap;
 int start_page = 0;
-int used_bytes = 0;
+unsigned int used_bytes = 0;
 
 static int
 countpages(int entries, size_t size_per_entry)

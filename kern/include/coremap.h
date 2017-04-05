@@ -18,7 +18,7 @@ struct cm_entry {
 
 int numpages;
 int first_free_page;
-int used_bytes;
+unsigned int used_bytes;
 struct cm_entry **coremap;
 struct spinlock coremap_lock;
 
