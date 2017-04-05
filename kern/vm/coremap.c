@@ -54,7 +54,7 @@ coremap_init(void)
         cme = (struct cm_entry *) PADDR_TO_KVADDR(cmeaddr);
         cme->cme_page = (struct vpage *) PADDR_TO_KVADDR(pageaddr);
         cme->cme_page->vp_paddr = i * PAGE_SIZE;
-        coremap[i] = cme;
+		coremap[i] = cme;
         if (i < numpages) {
             cme->cme_is_pinned = 1;
             cme->cme_is_allocated = 1;
@@ -67,7 +67,7 @@ coremap_init(void)
     first_free_page = numpages;
     start_page = numpages;
     used_bytes = numpages * PAGE_SIZE;
-    numpages = i;
+	numpages = i;
 }
 
 static int
@@ -109,7 +109,8 @@ coremap_alloc_npages(unsigned n)
             /* mark them all allocated */
             coremap[i]->cme_is_last_page = 1;
             for (int j = start; j <= i; j++) {
-                coremap[j]->cme_is_allocated = 1;
+    			used_bytes +=  PAGE_SIZE;
+				coremap[j]->cme_is_allocated = 1;
             }
             break;
         }
@@ -119,7 +120,6 @@ coremap_alloc_npages(unsigned n)
         first_free_page = coremap_nextfree(start);
     }
 
-    used_bytes += n * PAGE_SIZE;
     return coremap[start]->cme_page->vp_paddr;
 }
 
