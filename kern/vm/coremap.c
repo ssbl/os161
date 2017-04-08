@@ -109,7 +109,7 @@ coremap_alloc_npages(unsigned n)
             /* mark them all allocated */
             coremap[i]->cme_is_last_page = 1;
             for (int j = start; j <= i; j++) {
-    			used_bytes +=  PAGE_SIZE;
+    			used_bytes += PAGE_SIZE;
 				coremap[j]->cme_is_allocated = 1;
             }
             break;
@@ -146,4 +146,19 @@ coremap_alloc_page(void)
     /* first_free_page = coremap_nextfree(first_free_page); */
 
     return paddr;
+}
+
+void
+coremap_free_kpages(paddr_t paddr)
+{
+    int start = paddr / PAGE_SIZE;
+
+    for (int page_number = start ; ; page_number++) {
+        used_bytes -= PAGE_SIZE;
+		coremap[page_number]->cme_is_allocated = 0;
+		if (coremap[page_number]->cme_is_last_page == 1) {
+			coremap[page_number]->cme_is_last_page = 0;
+			break;
+		}  
+	}
 }

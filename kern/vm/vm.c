@@ -43,16 +43,8 @@ free_kpages(vaddr_t addr)
 {
     paddr_t paddr = addr - MIPS_KSEG0;
      
-    int start = paddr / PAGE_SIZE;
 	spinlock_acquire(&coremap_lock);
-	for(int page_number = start ; ; page_number++) {
-        used_bytes -= PAGE_SIZE;
-		coremap[page_number]->cme_is_allocated = 0;
-		if (coremap[page_number]->cme_is_last_page == 1) {
-			coremap[page_number]->cme_is_last_page = 0;
-			break;
-		}  
-	}
+    coremap_free_kpages(paddr);
 	spinlock_release(&coremap_lock);
 }
 
