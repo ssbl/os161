@@ -51,7 +51,7 @@ free_kpages(vaddr_t addr)
 unsigned int
 coremap_used_bytes(void)
 {
-    return used_bytes;
+    return cm_used_bytes;
 }
 
 void

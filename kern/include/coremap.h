@@ -3,6 +3,9 @@
 
 #include <vm.h>
 
+struct cm_entry **coremap;
+struct spinlock coremap_lock;
+
 struct cm_entry {
     struct vpage *cme_page;
     unsigned cme_cpu_id:4;
@@ -12,15 +15,10 @@ struct cm_entry {
     bool cme_is_pinned:1;
 };
 
-/* struct coremap {
- *     struct cm_entry *cm_pages;
- * }; */
 
-int numpages;
-int first_free_page;
-unsigned int used_bytes;
-struct cm_entry **coremap;
-struct spinlock coremap_lock;
+int cm_numpages;
+int cm_first_free_page;
+unsigned int cm_used_bytes;
 
 void coremap_init(void);
 paddr_t coremap_alloc_npages(unsigned n);
