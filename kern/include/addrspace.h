@@ -42,6 +42,20 @@ struct vnode;
 
 
 /*
+ * Region - a collection of pages. Each page is indexed by its position
+ * in the region.
+ *
+ * We use this region to create a page table. Indexing within the region
+ * is O(1), but finding the correct region takes O(n) time.
+ */
+
+struct region {
+    vaddr_t r_startaddr;
+    unsigned r_numpages;
+    struct vpage **r_pages;
+};
+
+/*
  * Address space - data structure associated with the virtual memory
  * space of a process.
  *
@@ -50,15 +64,20 @@ struct vnode;
 
 struct addrspace {
 #if OPT_DUMBVM
-        vaddr_t as_vbase1;
-        paddr_t as_pbase1;
-        size_t as_npages1;
-        vaddr_t as_vbase2;
-        paddr_t as_pbase2;
-        size_t as_npages2;
-        paddr_t as_stackpbase;
+    vaddr_t as_vbase1;
+    paddr_t as_pbase1;
+    size_t as_npages1;
+    vaddr_t as_vbase2;
+    paddr_t as_pbase2;
+    size_t as_npages2;
+    paddr_t as_stackpbase;
 #else
-        /* Put stuff here for your VM system */
+    /* Put stuff here for your VM system */
+    struct region **as_regions;
+    unsigned as_numregions;
+    vaddr_t as_heapbrk;
+    vaddr_t as_heapmax;
+    int as_heapidx;
 #endif
 };
 

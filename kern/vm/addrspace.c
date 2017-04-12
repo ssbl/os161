@@ -33,6 +33,7 @@
 #include <addrspace.h>
 #include <vm.h>
 #include <proc.h>
+#include <coremap.h>
 
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM
@@ -50,9 +51,12 @@ as_create(void)
 		return NULL;
 	}
 
-	/*
-	 * Initialize as needed.
-	 */
+    as->as_regions = kmalloc(sizeof(struct region *));
+    as->as_heapbrk = (vaddr_t)as + sizeof(struct addrspace);
+
+    as->as_numregions = 0;
+    as->as_heapmax = 0;
+    as->as_regions[0] = NULL;
 
 	return as;
 }
@@ -130,39 +134,91 @@ int
 as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 		 int readable, int writeable, int executable)
 {
-	/*
-	 * Write this.
-	 */
-
-	(void)as;
-	(void)vaddr;
-	(void)memsize;
+    KASSERT(as != NULL);
+    
 	(void)readable;
 	(void)writeable;
 	(void)executable;
-	return ENOSYS;
+
+    unsigned free_region;
+    struct region **regionptr;
+
+    for (free_region = 0; as->as_regions[free_region] != NULL; free_region++) {
+        ;
+    }
+
+    /* If all slots are full, double the size of the region array. */
+    if (free_region == as->as_numregions) {
+        regionptr = kmalloc((2*as->as_numregions + 1) * sizeof(*as->as_regions));
+        if (regionptr == NULL) {
+            return ENOMEM;
+        }
+
+        memcpy(regionptr, as->as_regions,
+               as->as_numregions * sizeof(*as->as_regions));
+        kfree(as->as_regions);
+        as->as_regions = regionptr;
+    }
+
+    /* WARNING: Could run out of physical memory when calling kmalloc */
+    as->as_regions[free_region] = kmalloc(sizeof(struct region));
+    if (as->as_regions[free_region] == NULL) {
+        return ENOMEM;
+    }
+
+    as->as_regions[free_region]->r_startaddr = vaddr;
+    as->as_regions[free_region]->r_numpages = memsize / PAGE_SIZE;
+    as->as_regions[free_region]->r_pages = NULL;
+    as->as_numregions++;
+
+	return 0;
 }
 
 int
 as_prepare_load(struct addrspace *as)
 {
-	/*
-	 * Write this.
-	 */
+    KASSERT(as != NULL);
 
-	(void)as;
+    paddr_t pstart = 0;
+    unsigned numpages = 0;
+
+    /*
+     * r_numpages and r_startaddr have been marked by as_define_region.
+     * Use these values to allocate physical pages and update region
+     * information.
+     */
+    for (unsigned i = 0; i < as->as_numregions; i++) {
+        numpages = as->as_regions[i]->r_numpages;
+        as->as_regions[i]->r_pages = kmalloc(numpages * sizeof(struct vpage *));
+
+        pstart = coremap_alloc_npages(numpages);
+        if (pstart == 0) {
+            /* out of memory or no contiguous pages */
+            /* no swapping yet */
+            return ENOMEM;
+        }
+
+        for (unsigned j = 0; j < numpages; j++) {
+            int pageno = (pstart / PAGE_SIZE) + j;
+            as->as_regions[i]->r_pages[j] = coremap[pageno]->cme_page;
+        }
+
+        as->as_regions[i]->r_startaddr = pstart;
+    }
+
 	return 0;
 }
 
 int
 as_complete_load(struct addrspace *as)
 {
-	/*
-	 * Write this.
-	 */
+    KASSERT(as != NULL);
+    KASSERT(as->as_regions[as->as_numregions] == NULL);
 
-	(void)as;
-	return 0;
+    (void)as;
+    /* as->as_heapbrk = as->as_regions[]->r_startaddr; */
+
+    return 0;
 }
 
 int
