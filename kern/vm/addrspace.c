@@ -52,7 +52,6 @@ as_create(void)
 	}
 
     as->as_regions = kmalloc(sizeof(struct region *));
-    as->as_heapbrk = (vaddr_t)as + sizeof(struct addrspace);
 
     as->as_numregions = 0;
     as->as_heapmax = 0;
@@ -135,12 +134,13 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 		 int readable, int writeable, int executable)
 {
     KASSERT(as != NULL);
-    
+    kprintf("as_define_region (%d)\n", (int)vaddr);
+
 	(void)readable;
 	(void)writeable;
 	(void)executable;
 
-    unsigned free_region;
+    unsigned npages, free_region;
     struct region **regionptr;
 
     for (free_region = 0; as->as_regions[free_region] != NULL; free_region++) {
@@ -166,8 +166,18 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
         return ENOMEM;
     }
 
+    /* From dumbvm.c */
+	/* Align the region. First, the base... */
+	memsize += vaddr & ~(vaddr_t)PAGE_FRAME;
+	vaddr &= PAGE_FRAME;
+
+	/* ...and now the length. */
+	memsize = (memsize + PAGE_SIZE - 1) & PAGE_FRAME;
+
+	npages = memsize / PAGE_SIZE;
+
     as->as_regions[free_region]->r_startaddr = vaddr;
-    as->as_regions[free_region]->r_numpages = memsize / PAGE_SIZE;
+    as->as_regions[free_region]->r_numpages = npages;
     as->as_regions[free_region]->r_pages = NULL;
     as->as_numregions++;
 
@@ -202,8 +212,6 @@ as_prepare_load(struct addrspace *as)
             int pageno = (pstart / PAGE_SIZE) + j;
             as->as_regions[i]->r_pages[j] = coremap[pageno]->cme_page;
         }
-
-        as->as_regions[i]->r_startaddr = pstart;
     }
 
 	return 0;
@@ -215,8 +223,9 @@ as_complete_load(struct addrspace *as)
     KASSERT(as != NULL);
     KASSERT(as->as_regions[as->as_numregions] == NULL);
 
-    (void)as;
-    /* as->as_heapbrk = as->as_regions[]->r_startaddr; */
+    struct region *last_region = as->as_regions[as->as_numregions - 1];
+    as->as_heapbrk = last_region->r_startaddr
+        + last_region->r_numpages * PAGE_SIZE;
 
     return 0;
 }

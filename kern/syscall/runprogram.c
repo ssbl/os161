@@ -75,6 +75,8 @@ runprogram(char *progname)
 		return ENOMEM;
 	}
 
+    kprintf("as_create\n");
+
 	/* Switch to it and activate it. */
 	proc_setas(as);
 	as_activate();
@@ -87,6 +89,7 @@ runprogram(char *progname)
 		return result;
 	}
 
+    kprintf("load_elf\n");
 	/* Done with the file now. */
 	vfs_close(v);
 
