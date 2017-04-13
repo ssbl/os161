@@ -28,16 +28,16 @@ vm_fault(int faulttype, vaddr_t faultaddress)
     vaddr_t vtop, vbase;
     paddr_t paddr = 0;
 
-	switch (faulttype) {
-	    case VM_FAULT_READONLY:
-		/* We always create pages read-write, so we can't get this */
-		panic("dumbvm: got VM_FAULT_READONLY\n");
-	    case VM_FAULT_READ:
-	    case VM_FAULT_WRITE:
-		break;
-	    default:
-		return EINVAL;
-	}
+    switch (faulttype) {
+        case VM_FAULT_READONLY:
+        /* We always create pages read-write, so we can't get this */
+        panic("dumbvm: got VM_FAULT_READONLY\n");
+        case VM_FAULT_READ:
+        case VM_FAULT_WRITE:
+        break;
+        default:
+        return EINVAL;
+    }
 
     if (curproc == NULL) {
         return EFAULT;
@@ -75,24 +75,25 @@ vm_fault(int faulttype, vaddr_t faultaddress)
     }
 
     /* make sure it's page-aligned */
-	KASSERT((paddr & PAGE_FRAME) == paddr);
+    KASSERT((paddr & PAGE_FRAME) == paddr);
 
-	/* Disable interrupts on this CPU while frobbing the TLB. */
-	spl = splhigh();
+    /* Disable interrupts on this CPU while frobbing the TLB. */
+    spl = splhigh();
 
-	for (i=0; i<NUM_TLB; i++) {
-		tlb_read(&ehi, &elo, i);
-		if (elo & TLBLO_VALID) {
-			continue;
-		}
-		ehi = faultaddress;
-		elo = paddr | TLBLO_DIRTY | TLBLO_VALID;
-		DEBUG(DB_VM, "dumbvm: 0x%x -> 0x%x\n", faultaddress, paddr);
-		tlb_write(ehi, elo, i);
-		splx(spl);
-		return 0;
-	}
+    for (i=0; i<NUM_TLB; i++) {
+        tlb_read(&ehi, &elo, i);
+        if (elo & TLBLO_VALID) {
+            continue;
+        }
+        ehi = faultaddress;
+        elo = paddr | TLBLO_DIRTY | TLBLO_VALID;
+        DEBUG(DB_VM, "dumbvm: 0x%x -> 0x%x\n", faultaddress, paddr);
+        tlb_write(ehi, elo, i);
+        splx(spl);
+        return 0;
+    }
 
+    splx(spl);
     return EFAULT;
 }
 
@@ -103,13 +104,13 @@ alloc_kpages(unsigned npages)
     /* return 1; */
     /* return PADDR_TO_KVADDR(ram_stealmem(npages)); */
     paddr_t paddr;
-	spinlock_acquire(&coremap_lock);
+    spinlock_acquire(&coremap_lock);
     if (npages > 1) {
         paddr = coremap_alloc_npages(npages);
     } else {
         paddr = coremap_alloc_page();
     }
-	spinlock_release(&coremap_lock);
+    spinlock_release(&coremap_lock);
 
     if (paddr == 0) {
         return 0;
@@ -122,10 +123,10 @@ void
 free_kpages(vaddr_t addr)
 {
     paddr_t paddr = addr - MIPS_KSEG0;
-     
-	spinlock_acquire(&coremap_lock);
+
+    spinlock_acquire(&coremap_lock);
     coremap_free_kpages(paddr);
-	spinlock_release(&coremap_lock);
+    spinlock_release(&coremap_lock);
 }
 
 unsigned int

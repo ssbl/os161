@@ -46,12 +46,12 @@
 struct addrspace *
 as_create(void)
 {
-	struct addrspace *as;
+    struct addrspace *as;
 
-	as = kmalloc(sizeof(struct addrspace));
-	if (as == NULL) {
-		return NULL;
-	}
+    as = kmalloc(sizeof(struct addrspace));
+    if (as == NULL) {
+        return NULL;
+    }
 
     as->as_regions = kmalloc(sizeof(struct region *));
 
@@ -59,37 +59,37 @@ as_create(void)
     as->as_heapmax = 0;
     as->as_regions[0] = NULL;
 
-	return as;
+    return as;
 }
 
 int
 as_copy(struct addrspace *old, struct addrspace **ret)
 {
-	struct addrspace *newas;
+    struct addrspace *newas;
 
-	newas = as_create();
-	if (newas==NULL) {
-		return ENOMEM;
-	}
+    newas = as_create();
+    if (newas==NULL) {
+        return ENOMEM;
+    }
 
-	/*
-	 * Write this.
-	 */
+    /*
+     * Write this.
+     */
 
-	(void)old;
+    (void)old;
 
-	*ret = newas;
-	return 0;
+    *ret = newas;
+    return 0;
 }
 
 void
 as_destroy(struct addrspace *as)
 {
-	/*
-	 * Clean up as needed.
-	 */
+    /*
+     * Clean up as needed.
+     */
 
-	kfree(as);
+    kfree(as);
 }
 
 void
@@ -121,11 +121,11 @@ as_activate(void)
 void
 as_deactivate(void)
 {
-	/*
-	 * Write this. For many designs it won't need to actually do
-	 * anything. See proc.c for an explanation of why it (might)
-	 * be needed.
-	 */
+    /*
+     * Write this. For many designs it won't need to actually do
+     * anything. See proc.c for an explanation of why it (might)
+     * be needed.
+     */
 }
 
 /*
@@ -140,14 +140,14 @@ as_deactivate(void)
  */
 int
 as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
-		 int readable, int writeable, int executable)
+         int readable, int writeable, int executable)
 {
     KASSERT(as != NULL);
-    kprintf("as_define_region (%d)\n", (int)vaddr);
+    /* kprintf("as_define_region (%d)\n", (int)vaddr); */
 
-	(void)readable;
-	(void)writeable;
-	(void)executable;
+    (void)readable;
+    (void)writeable;
+    (void)executable;
 
     unsigned npages, free_region;
     struct region **regionptr;
@@ -176,21 +176,21 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
     }
 
     /* From dumbvm.c */
-	/* Align the region. First, the base... */
-	memsize += vaddr & ~(vaddr_t)PAGE_FRAME;
-	vaddr &= PAGE_FRAME;
+    /* Align the region. First, the base... */
+    memsize += vaddr & ~(vaddr_t)PAGE_FRAME;
+    vaddr &= PAGE_FRAME;
 
-	/* ...and now the length. */
-	memsize = (memsize + PAGE_SIZE - 1) & PAGE_FRAME;
+    /* ...and now the length. */
+    memsize = (memsize + PAGE_SIZE - 1) & PAGE_FRAME;
 
-	npages = memsize / PAGE_SIZE;
+    npages = memsize / PAGE_SIZE;
 
     as->as_regions[free_region]->r_startaddr = vaddr;
     as->as_regions[free_region]->r_numpages = npages;
     as->as_regions[free_region]->r_pages = NULL;
     as->as_numregions++;
 
-	return 0;
+    return 0;
 }
 
 int
@@ -223,7 +223,7 @@ as_prepare_load(struct addrspace *as)
         }
     }
 
-	return 0;
+    return 0;
 }
 
 int
