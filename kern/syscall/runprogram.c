@@ -75,7 +75,7 @@ runprogram(char *progname)
 		return ENOMEM;
 	}
 
-    kprintf("as_create\n");
+    /* kprintf("as_create\n"); */
 
 	/* Switch to it and activate it. */
 	proc_setas(as);
@@ -89,7 +89,7 @@ runprogram(char *progname)
 		return result;
 	}
 
-    kprintf("load_elf\n");
+    /* kprintf("load_elf\n"); */
 	/* Done with the file now. */
 	vfs_close(v);
 
@@ -100,6 +100,7 @@ runprogram(char *progname)
 		return result;
 	}
 
+    /* kprintf("as_define_stack\n"); */
 	/* Warp to user mode. */
 	enter_new_process(0 /*argc*/, NULL /*userspace addr of argv*/,
 			  NULL /*userspace addr of environment*/,

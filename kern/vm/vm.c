@@ -49,7 +49,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
     }
 
     KASSERT(as->as_regions != NULL);
-    
+
     for (i = 0; i < as->as_numregions; i++) {
         struct region *region = as->as_regions[i];
 
@@ -61,7 +61,11 @@ vm_fault(int faulttype, vaddr_t faultaddress)
         vtop = vbase + PAGE_SIZE * region->r_numpages;
 
         if (faultaddress >= vbase && faultaddress < vtop) {
-            paddr = (faultaddress - vbase) + region->r_pages[0]->vp_paddr;
+            int pageno = (faultaddress - vbase) / PAGE_SIZE;
+            /* kprintf("pageno = %d\n", pageno); */
+            paddr = region->r_pages[pageno]->vp_paddr;
+            /* kprintf("%u >= %u < %u\n", vbase, faultaddress, vtop); */
+            break;
         }
     }
 

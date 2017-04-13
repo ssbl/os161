@@ -40,6 +40,8 @@
 
 struct vnode;
 
+#define STACKPAGES 18           /* same as dumbvm's */
+
 
 /*
  * Region - a collection of pages. Each page is indexed by its position

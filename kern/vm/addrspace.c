@@ -28,8 +28,10 @@
  */
 
 #include <types.h>
-#include <kern/errno.h>
 #include <lib.h>
+#include <spl.h>
+#include <kern/errno.h>
+#include <mips/tlb.h>
 #include <addrspace.h>
 #include <vm.h>
 #include <proc.h>
@@ -93,20 +95,27 @@ as_destroy(struct addrspace *as)
 void
 as_activate(void)
 {
-	struct addrspace *as;
+    int i, spl;
+    struct addrspace *as;
 
-	as = proc_getas();
-	if (as == NULL) {
-		/*
-		 * Kernel thread without an address space; leave the
-		 * prior address space in place.
-		 */
-		return;
+    as = proc_getas();
+    if (as == NULL) {
+        /*
+         * Kernel thread without an address space; leave the
+         * prior address space in place.
+         */
+        return;
+    }
+
+    /* From dumbvm.c */
+	/* Disable interrupts on this CPU while frobbing the TLB. */
+	spl = splhigh();
+
+	for (i=0; i<NUM_TLB; i++) {
+		tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
 	}
 
-	/*
-	 * Write this.
-	 */
+	splx(spl);
 }
 
 void
@@ -204,7 +213,7 @@ as_prepare_load(struct addrspace *as)
         pstart = coremap_alloc_npages(numpages);
         if (pstart == 0) {
             /* out of memory or no contiguous pages */
-            /* no swapping yet */
+            /* INCOMPLETE: no swapping yet */
             return ENOMEM;
         }
 
@@ -223,6 +232,7 @@ as_complete_load(struct addrspace *as)
     KASSERT(as != NULL);
     KASSERT(as->as_regions[as->as_numregions] == NULL);
 
+    /* INCOMPLETE: This is most likely wrong. */
     struct region *last_region = as->as_regions[as->as_numregions - 1];
     as->as_heapbrk = last_region->r_startaddr
         + last_region->r_numpages * PAGE_SIZE;
@@ -233,15 +243,44 @@ as_complete_load(struct addrspace *as)
 int
 as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 {
-	/*
-	 * Write this.
-	 */
+    KASSERT(as != NULL);
+    KASSERT(stackptr != NULL);
+    KASSERT(as->as_regions != NULL);
 
-	(void)as;
+    paddr_t paddr = 0;
+    struct region *stack = NULL;
 
-	/* Initial user-level stack pointer */
-	*stackptr = USERSTACK;
+    int result;
+    vaddr_t vaddr = USERSTACK - STACKPAGES*PAGE_SIZE;
+    size_t memsize = STACKPAGES * PAGE_SIZE;
 
-	return 0;
+    result = as_define_region(as, vaddr, memsize, 0, 0, 0);
+    if (result) {
+        return result;
+    }
+
+    stack = as->as_regions[as->as_numregions-1];
+    stack->r_numpages = STACKPAGES;
+    stack->r_pages = kmalloc(STACKPAGES * sizeof(struct vpage *));
+    paddr = coremap_alloc_npages(STACKPAGES);
+    if (paddr == 0) {
+        /* INCOMPLETE: no swapping yet */
+        return ENOMEM;
+    }
+
+    for (unsigned i = 0; i < stack->r_numpages; i++) {
+        int pageno = (paddr / PAGE_SIZE) + i;
+        stack->r_pages[i] = coremap[pageno]->cme_page;
+    }
+
+    /* Initial user-level stack pointer */
+    *stackptr = USERSTACK;
+    KASSERT(stack->r_startaddr == USERSTACK - STACKPAGES*PAGE_SIZE);
+    KASSERT(stack->r_startaddr + stack->r_numpages*PAGE_SIZE == USERSTACK);
+    KASSERT((stack->r_pages[0]->vp_paddr & PAGE_FRAME)==stack->r_pages[0]->vp_paddr);
+
+    /* kprintf("actual paddr: %d\n", (int)stack->r_pages[0]->vp_paddr); */
+    /* as->as_regions[as->as_numregions-1] = stack; */
+
+    return 0;
 }
-

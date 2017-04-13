@@ -420,6 +420,7 @@ mips_usermode(struct trapframe *tf)
 	/*
 	 * This actually does it. See exception-*.S.
 	 */
+    /* kprintf("before asm_usermode\n"); */
 	asm_usermode(tf);
 }
 
@@ -454,5 +455,6 @@ enter_new_process(int argc, userptr_t argv, userptr_t env,
 	tf.tf_a2 = (vaddr_t)env;
 	tf.tf_sp = stack;
 
+    /* kprintf("before mips_usermode\n"); */
 	mips_usermode(&tf);
 }

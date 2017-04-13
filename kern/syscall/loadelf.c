@@ -103,7 +103,7 @@ load_segment(struct addrspace *as, struct vnode *v,
 	u.uio_rw = UIO_READ;
 	u.uio_space = as;
 
-    kprintf("VOP_READ\n");
+    /* kprintf("VOP_READ\n"); */
 	result = VOP_READ(v, &u);
 	if (result) {
 		return result;
@@ -258,7 +258,7 @@ load_elf(struct vnode *v, vaddr_t *entrypoint)
 	if (result) {
 		return result;
 	}
-    kprintf("as_prepare_load\n");
+    /* kprintf("as_prepare_load\n"); */
 
 	/*
 	 * Now actually load each segment.
@@ -296,7 +296,7 @@ load_elf(struct vnode *v, vaddr_t *entrypoint)
 		if (result) {
 			return result;
 		}
-        kprintf("load_segment\n");
+        /* kprintf("load_segment\n"); */
 	}
 
 	result = as_complete_load(as);
