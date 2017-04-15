@@ -29,6 +29,8 @@ vm_fault(int faulttype, vaddr_t faultaddress)
     vaddr_t vtop, vbase;
     paddr_t paddr = 0;
 
+    faultaddress &= PAGE_FRAME;
+
     if (curproc == NULL) {
         return EFAULT;
     }
@@ -60,7 +62,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
     }
 
     if (paddr == 0) {
-        kprintf("Page fault!\n");
+        /* kprintf("Page fault!\n"); */
         return EFAULT;
     }
 
