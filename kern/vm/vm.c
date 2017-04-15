@@ -95,13 +95,6 @@ vm_fault(int faulttype, vaddr_t faultaddress)
     /* Disable interrupts on this CPU while frobbing the TLB. */
     spl = splhigh();
 
-    /* if ( (index = tlb_probe(faultaddress, 0)) != -1) {
-     *     /\* kprintf("found a dupe! %u\n", faultaddress); *\/
-     *     tlb_write(faultaddress, paddr | TLBLO_DIRTY | TLBLO_VALID, index);
-     *     splx(spl);
-     *     return 0;
-     * } */
-
     for (i=0; i<NUM_TLB; i++) {
         tlb_read(&ehi, &elo, i);
         if (elo & TLBLO_VALID) {

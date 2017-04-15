@@ -62,26 +62,6 @@ as_create(void)
     return as;
 }
 
-int
-as_copy(struct addrspace *old, struct addrspace **ret)
-{
-    struct addrspace *newas;
-
-    newas = as_create();
-    if (newas==NULL) {
-        return ENOMEM;
-    }
-
-    /*
-     * Write this.
-     */
-
-    (void)old;
-
-    *ret = newas;
-    return 0;
-}
-
 void
 as_destroy(struct addrspace *as)
 {
@@ -108,14 +88,14 @@ as_activate(void)
     }
 
     /* From dumbvm.c */
-	/* Disable interrupts on this CPU while frobbing the TLB. */
-	spl = splhigh();
+    /* Disable interrupts on this CPU while frobbing the TLB. */
+    spl = splhigh();
 
-	for (i=0; i<NUM_TLB; i++) {
-		tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
-	}
+    for (i=0; i<NUM_TLB; i++) {
+        tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
+    }
 
-	splx(spl);
+    splx(spl);
 }
 
 void
@@ -280,5 +260,67 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
     /* kprintf("actual paddr: %d\n", (int)stack->r_pages[0]->vp_paddr); */
     /* as->as_regions[as->as_numregions-1] = stack; */
 
+    return 0;
+}
+
+int
+as_copy(struct addrspace *old, struct addrspace **ret)
+{
+    KASSERT(old != NULL);
+    KASSERT(ret != NULL);
+
+    int result;
+    unsigned i;
+    struct addrspace *newas;
+
+    newas = as_create();
+    if (newas==NULL) {
+        return ENOMEM;
+    }
+
+    for (i = 0; i < old->as_numregions; i++) {
+        struct region *rgn = old->as_regions[i];
+        as_define_region(newas, rgn->r_startaddr,
+                         rgn->r_numpages * PAGE_SIZE,
+                         rgn->r_permissions & 4,
+                         rgn->r_permissions & 2,
+                         rgn->r_permissions & 1);
+    }
+
+    result = as_prepare_load(newas);
+    if (result) {
+        return result;
+    }
+
+    result = as_complete_load(newas);
+    if (result) {
+        return result;
+    }
+
+    KASSERT(old->as_numregions == newas->as_numregions);
+
+    for (i = 0; i < newas->as_numregions; i++) {
+        struct region *region_old = old->as_regions[i];
+        struct region *region_new = newas->as_regions[i];
+
+        KASSERT(region_old->r_numpages == region_new->r_numpages);
+        KASSERT(region_old->r_startaddr == region_new->r_startaddr);
+        KASSERT(region_old->r_permissions == region_new->r_permissions);
+
+        for (unsigned j = 0; j < region_new->r_numpages; j++) {
+            KASSERT(region_new->r_pages[j]->vp_paddr !=
+                    region_old->r_pages[j]->vp_paddr);
+        }
+
+        memmove((void *)PADDR_TO_KVADDR(region_new->r_pages[0]->vp_paddr),
+                (const void *)PADDR_TO_KVADDR(region_old->r_pages[0]->vp_paddr),
+                region_old->r_numpages * PAGE_SIZE);
+    }
+
+    /* KASSERT(old->as_heapbrk == newas->as_heapbrk); */
+    KASSERT(old->as_heapmax == newas->as_heapmax);
+    KASSERT(old->as_heapidx == newas->as_heapidx);
+
+    *ret = newas;
     return 0;
 }

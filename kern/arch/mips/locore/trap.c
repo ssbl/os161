@@ -422,7 +422,6 @@ mips_usermode(struct trapframe *tf)
 	/*
 	 * This actually does it. See exception-*.S.
 	 */
-    kprintf("before asm_usermode\n");
 	asm_usermode(tf);
 }
 
