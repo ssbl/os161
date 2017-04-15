@@ -145,10 +145,6 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
     KASSERT(as != NULL);
     /* kprintf("as_define_region (%d)\n", (int)vaddr); */
 
-    (void)readable;
-    (void)writeable;
-    (void)executable;
-
     unsigned npages, free_region;
     struct region **regionptr;
 
@@ -188,6 +184,8 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
     as->as_regions[free_region]->r_startaddr = vaddr;
     as->as_regions[free_region]->r_numpages = npages;
     as->as_regions[free_region]->r_pages = NULL;
+    as->as_regions[free_region]->r_permissions =
+        readable | writeable | executable;
     as->as_numregions++;
 
     return 0;
@@ -254,7 +252,7 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
     vaddr_t vaddr = USERSTACK - STACKPAGES*PAGE_SIZE;
     size_t memsize = STACKPAGES * PAGE_SIZE;
 
-    result = as_define_region(as, vaddr, memsize, 0, 0, 0);
+    result = as_define_region(as, vaddr, memsize, 4, 2, 0);
     if (result) {
         return result;
     }

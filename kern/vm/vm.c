@@ -24,20 +24,10 @@ vm_fault(int faulttype, vaddr_t faultaddress)
     struct addrspace *as;
 
     int spl;
+    /* int index; */
     uint32_t ehi, elo;
     vaddr_t vtop, vbase;
     paddr_t paddr = 0;
-
-    switch (faulttype) {
-        case VM_FAULT_READONLY:
-        /* We always create pages read-write, so we can't get this */
-        panic("dumbvm: got VM_FAULT_READONLY\n");
-        case VM_FAULT_READ:
-        case VM_FAULT_WRITE:
-        break;
-        default:
-        return EINVAL;
-    }
 
     if (curproc == NULL) {
         return EFAULT;
@@ -74,11 +64,41 @@ vm_fault(int faulttype, vaddr_t faultaddress)
         return EFAULT;
     }
 
+    switch (faulttype) {
+    case VM_FAULT_READONLY:
+        if ((as->as_regions[i]->r_permissions & 2) == 0) {
+            kprintf("RDONLY\n");
+            return EFAULT;
+        }
+        break;
+    case VM_FAULT_READ:
+        /* if ((as->as_regions[i]->r_permissions & 4) == 0) {
+         *     kprintf("RD\n");
+         *     return EFAULT;
+         * } */
+        break;
+    case VM_FAULT_WRITE:
+        /* if ((as->as_regions[i]->r_permissions & 2) == 0) {
+         *     kprintf("WR\n");
+         *     return EFAULT;
+         * } */
+        break;
+    default:
+        return EINVAL;
+    }
+
     /* make sure it's page-aligned */
     KASSERT((paddr & PAGE_FRAME) == paddr);
 
     /* Disable interrupts on this CPU while frobbing the TLB. */
     spl = splhigh();
+
+    /* if ( (index = tlb_probe(faultaddress, 0)) != -1) {
+     *     /\* kprintf("found a dupe! %u\n", faultaddress); *\/
+     *     tlb_write(faultaddress, paddr | TLBLO_DIRTY | TLBLO_VALID, index);
+     *     splx(spl);
+     *     return 0;
+     * } */
 
     for (i=0; i<NUM_TLB; i++) {
         tlb_read(&ehi, &elo, i);

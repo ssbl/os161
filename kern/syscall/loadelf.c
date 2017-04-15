@@ -252,6 +252,8 @@ load_elf(struct vnode *v, vaddr_t *entrypoint)
 		if (result) {
 			return result;
 		}
+        kprintf("defining region with permissions: %d,%d,%d\n",
+                ph.p_flags & PF_R, ph.p_flags & PF_W, ph.p_flags & PF_X);
 	}
 
 	result = as_prepare_load(as);

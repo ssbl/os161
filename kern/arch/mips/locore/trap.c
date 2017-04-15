@@ -250,6 +250,8 @@ mips_trap(struct trapframe *tf)
 	 * Call vm_fault on the TLB exceptions.
 	 * Panic on the bus error exceptions.
 	 */
+    /* kprintf("(%d), v = %x\n",
+     *         code, tf->tf_vaddr & 0xfffff000); */
 	switch (code) {
 	case EX_MOD:
 		if (vm_fault(VM_FAULT_READONLY, tf->tf_vaddr)==0) {
@@ -420,7 +422,7 @@ mips_usermode(struct trapframe *tf)
 	/*
 	 * This actually does it. See exception-*.S.
 	 */
-    /* kprintf("before asm_usermode\n"); */
+    kprintf("before asm_usermode\n");
 	asm_usermode(tf);
 }
 
