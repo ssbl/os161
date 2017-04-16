@@ -75,6 +75,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
                  *               TLBLO_INVALID(), tlb_index);
                  * }
                  * splx(spl); */
+                bzero((void *)PADDR_TO_KVADDR(paddr), PAGE_SIZE);
             }
 
             paddr = region->r_pages[pageno]->vp_paddr;
