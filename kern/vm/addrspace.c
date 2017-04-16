@@ -168,6 +168,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
         readable | writeable | executable;
     as->as_numregions++;
 
+    as->as_regions[free_region+1] = NULL;
     return 0;
 }
 
@@ -188,12 +189,15 @@ as_prepare_load(struct addrspace *as)
         numpages = as->as_regions[i]->r_numpages;
         as->as_regions[i]->r_pages = kmalloc(numpages * sizeof(struct vpage *));
 
+        spinlock_acquire(&coremap_lock);
         pstart = coremap_alloc_npages(numpages);
         if (pstart == 0) {
             /* out of memory or no contiguous pages */
             /* INCOMPLETE: no swapping yet */
+            spinlock_release(&coremap_lock);
             return ENOMEM;
         }
+        spinlock_release(&coremap_lock);
 
         for (unsigned j = 0; j < numpages; j++) {
             int pageno = (pstart / PAGE_SIZE) + j;
