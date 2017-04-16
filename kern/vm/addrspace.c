@@ -123,7 +123,6 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
          int readable, int writeable, int executable)
 {
     KASSERT(as != NULL);
-    /* kprintf("as_define_region (%d)\n", (int)vaddr); */
 
     unsigned npages, free_region;
     struct region **regionptr;
@@ -134,7 +133,12 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 
     /* If all slots are full, double the size of the region array. */
     if (free_region == as->as_numregions) {
-        regionptr = kmalloc((2*as->as_numregions + 1) * sizeof(*as->as_regions));
+        if (as->as_numregions == 0) { /* create two slots if it's empty */
+            regionptr = kmalloc(2*sizeof(*as->as_regions));
+        } else {
+            regionptr = kmalloc((2*as->as_numregions + 1)
+                                * sizeof(*as->as_regions));
+        }
         if (regionptr == NULL) {
             return ENOMEM;
         }
@@ -177,7 +181,7 @@ as_prepare_load(struct addrspace *as)
 {
     KASSERT(as != NULL);
 
-    paddr_t pstart = 0;
+    /* paddr_t pstart = 0; */
     unsigned numpages = 0;
 
     /*
@@ -189,19 +193,8 @@ as_prepare_load(struct addrspace *as)
         numpages = as->as_regions[i]->r_numpages;
         as->as_regions[i]->r_pages = kmalloc(numpages * sizeof(struct vpage *));
 
-        spinlock_acquire(&coremap_lock);
-        pstart = coremap_alloc_npages(numpages);
-        if (pstart == 0) {
-            /* out of memory or no contiguous pages */
-            /* INCOMPLETE: no swapping yet */
-            spinlock_release(&coremap_lock);
-            return ENOMEM;
-        }
-        spinlock_release(&coremap_lock);
-
         for (unsigned j = 0; j < numpages; j++) {
-            int pageno = (pstart / PAGE_SIZE) + j;
-            as->as_regions[i]->r_pages[j] = coremap[pageno]->cme_page;
+            as->as_regions[i]->r_pages[j] = NULL;
         }
     }
 
@@ -229,7 +222,6 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
     KASSERT(stackptr != NULL);
     KASSERT(as->as_regions != NULL);
 
-    paddr_t paddr = 0;
     struct region *stack = NULL;
 
     int result;
@@ -244,25 +236,15 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
     stack = as->as_regions[as->as_numregions-1];
     stack->r_numpages = STACKPAGES;
     stack->r_pages = kmalloc(STACKPAGES * sizeof(struct vpage *));
-    paddr = coremap_alloc_npages(STACKPAGES);
-    if (paddr == 0) {
-        /* INCOMPLETE: no swapping yet */
-        return ENOMEM;
-    }
 
     for (unsigned i = 0; i < stack->r_numpages; i++) {
-        int pageno = (paddr / PAGE_SIZE) + i;
-        stack->r_pages[i] = coremap[pageno]->cme_page;
+        stack->r_pages[i] = NULL;
     }
 
     /* Initial user-level stack pointer */
     *stackptr = USERSTACK;
     KASSERT(stack->r_startaddr == USERSTACK - STACKPAGES*PAGE_SIZE);
     KASSERT(stack->r_startaddr + stack->r_numpages*PAGE_SIZE == USERSTACK);
-    KASSERT((stack->r_pages[0]->vp_paddr & PAGE_FRAME)==stack->r_pages[0]->vp_paddr);
-
-    /* kprintf("actual paddr: %d\n", (int)stack->r_pages[0]->vp_paddr); */
-    /* as->as_regions[as->as_numregions-1] = stack; */
 
     return 0;
 }
@@ -274,7 +256,8 @@ as_copy(struct addrspace *old, struct addrspace **ret)
     KASSERT(ret != NULL);
 
     int result;
-    unsigned i;
+    unsigned i, j;
+    paddr_t paddr;
     struct addrspace *newas;
 
     newas = as_create();
@@ -311,14 +294,19 @@ as_copy(struct addrspace *old, struct addrspace **ret)
         KASSERT(region_old->r_startaddr == region_new->r_startaddr);
         KASSERT(region_old->r_permissions == region_new->r_permissions);
 
-        for (unsigned j = 0; j < region_new->r_numpages; j++) {
-            KASSERT(region_new->r_pages[j]->vp_paddr !=
-                    region_old->r_pages[j]->vp_paddr);
-        }
+        for (j = 0; j < region_old->r_numpages; j++) {
+            if (region_old->r_pages[j] != NULL) {
+                spinlock_acquire(&coremap_lock);
+                paddr = coremap_alloc_page();
+                region_new->r_pages[j] = coremap[paddr / PAGE_SIZE]->cme_page;
+                spinlock_release(&coremap_lock);
 
-        memmove((void *)PADDR_TO_KVADDR(region_new->r_pages[0]->vp_paddr),
-                (const void *)PADDR_TO_KVADDR(region_old->r_pages[0]->vp_paddr),
-                region_old->r_numpages * PAGE_SIZE);
+                memmove((void *)PADDR_TO_KVADDR(paddr),
+                        (const void *)
+                        PADDR_TO_KVADDR(region_old->r_pages[j]->vp_paddr),
+                        PAGE_SIZE);
+            }
+        }
     }
 
     /* KASSERT(old->as_heapbrk == newas->as_heapbrk); */
@@ -327,4 +315,34 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 
     *ret = newas;
     return 0;
+}
+
+/*
+ * Find first unreferenced page in a region.
+ *
+ * Returns the page number for that page, or -1 if no such page is found.
+ */
+int
+as_unrefd_in_region(struct addrspace *as, int region_idx)
+{
+    KASSERT(as != NULL);
+    KASSERT(region_idx >= 0);
+    KASSERT(region_idx < (int)as->as_numregions);
+
+    int i, pageno = -1;
+    struct region *rgn = as->as_regions[region_idx];
+
+    KASSERT(rgn != NULL);
+
+    for (i = 0; i < (int)rgn->r_numpages; i++) {
+        if (rgn->r_pages[i] != NULL) {
+            int cme_page_idx = rgn->r_pages[i]->vp_paddr / PAGE_SIZE;
+            if (!coremap[cme_page_idx]->cme_is_referenced) {
+                pageno = i;
+                break;
+            }
+        }
+    }
+
+    return pageno;
 }

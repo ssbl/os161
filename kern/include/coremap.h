@@ -13,6 +13,7 @@ struct cm_entry {
     bool cme_is_last_page:1;
     bool cme_is_allocated:1;
     bool cme_is_pinned:1;
+    bool cme_is_referenced:1;
 };
 
 

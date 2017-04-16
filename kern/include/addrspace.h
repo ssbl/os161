@@ -150,5 +150,8 @@ int               as_define_stack(struct addrspace *as, vaddr_t *initstackptr);
 
 int load_elf(struct vnode *v, vaddr_t *entrypoint);
 
+/* Other functions (vm.c) */
+int as_unrefd_in_region(struct addrspace *as, int region_idx);
+
 
 #endif /* _ADDRSPACE_H_ */

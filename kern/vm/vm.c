@@ -53,16 +53,37 @@ vm_fault(int faulttype, vaddr_t faultaddress)
         vtop = vbase + PAGE_SIZE * region->r_numpages;
 
         if (faultaddress >= vbase && faultaddress < vtop) {
+            /* int tlb_index; */
             int pageno = (faultaddress - vbase) / PAGE_SIZE;
-            /* kprintf("pageno = %d\n", pageno); */
+            if (region->r_pages[pageno] == NULL) {
+                /* kprintf("oom page!\n"); */
+                /* OOM page, need to allocate */
+
+                paddr = coremap_alloc_page();
+                region->r_pages[pageno] = coremap[paddr / PAGE_SIZE]->cme_page;
+                /* Invalidate its TLB entry */
+                /* spl = splhigh();
+                 * vaddr_t page_vaddr = vbase + unrefd_page*PAGE_SIZE;
+                 * if ( (tlb_index = tlb_probe(page_vaddr & PAGE_FRAME, 0)) != -1) {
+                 *     kprintf("invalidating\n");
+                 *     tlb_write(TLBHI_INVALID(tlb_index),
+                 *               TLBLO_INVALID(), tlb_index);
+                 * }
+                 * if ( (tlb_index = tlb_probe(faultaddress, 0)) != -1) {
+                 *     kprintf("invalidating\n");
+                 *     tlb_write(TLBHI_INVALID(tlb_index),
+                 *               TLBLO_INVALID(), tlb_index);
+                 * }
+                 * splx(spl); */
+            }
+
             paddr = region->r_pages[pageno]->vp_paddr;
-            /* kprintf("%u >= %u < %u\n", vbase, faultaddress, vtop); */
+            coremap[paddr / PAGE_SIZE]->cme_is_referenced = 1;
             break;
         }
     }
 
     if (paddr == 0) {
-        /* kprintf("Page fault!\n"); */
         return EFAULT;
     }
 
@@ -95,6 +116,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
     /* Disable interrupts on this CPU while frobbing the TLB. */
     spl = splhigh();
 
+add_to_tlb:
     for (i=0; i<NUM_TLB; i++) {
         tlb_read(&ehi, &elo, i);
         if (elo & TLBLO_VALID) {
@@ -106,6 +128,13 @@ vm_fault(int faulttype, vaddr_t faultaddress)
         tlb_write(ehi, elo, i);
         splx(spl);
         return 0;
+    }
+
+    if (i == NUM_TLB) {
+        for (i = 0; i < NUM_TLB; i++) {
+            tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
+        }
+        goto add_to_tlb;
     }
 
     splx(spl);

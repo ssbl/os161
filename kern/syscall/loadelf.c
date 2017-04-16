@@ -252,8 +252,7 @@ load_elf(struct vnode *v, vaddr_t *entrypoint)
 		if (result) {
 			return result;
 		}
-        kprintf("defining region with permissions: %d,%d,%d\n",
-                ph.p_flags & PF_R, ph.p_flags & PF_W, ph.p_flags & PF_X);
+        kprintf("defining region of size %d\n", ph.p_memsz);
 	}
 
 	result = as_prepare_load(as);

@@ -112,6 +112,10 @@ coremap_alloc_npages(unsigned n)
         }
     }
 
+    if (pages_found != n) {
+        cm_used_bytes += pages_found * PAGE_SIZE;
+    }
+
     if (cm_first_free_page == start) {
         cm_first_free_page = coremap_nextfree(start);
     }
