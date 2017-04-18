@@ -48,6 +48,11 @@ struct lpage {
     paddr_t lp_paddr;
 };
 
+struct dregion {
+    int dr_numpages;
+    struct lpage **dr_pages;
+};
+
 /*
  * Region - a collection of pages. Each page is indexed by its position
  * in the region.
@@ -86,7 +91,7 @@ struct addrspace {
     vaddr_t as_heapbrk;
     vaddr_t as_heapmax;
     int as_heapidx;
-    struct lpage **as_stack;
+    struct lpage *as_stack[256];
 #endif
 };
 
@@ -157,7 +162,6 @@ int               as_define_stack(struct addrspace *as, vaddr_t *initstackptr);
 int load_elf(struct vnode *v, vaddr_t *entrypoint);
 
 /* Other functions (vm.c) */
-int as_unrefd_in_region(struct addrspace *as, int region_idx);
-
+int as_define_stack2(struct addrspace *as, vaddr_t *stackptr);
 
 #endif /* _ADDRSPACE_H_ */

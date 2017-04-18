@@ -39,6 +39,36 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
     KASSERT(as->as_regions != NULL);
 
+    if (as->as_heapmax != 0 && faultaddress >= as->as_heapmax) {
+        int nullpage = 0;
+        for (i = 0; i < 256; i++) {
+            if (as->as_stack[i] != NULL) {
+                vbase = as->as_stack[i]->lp_startaddr;
+                /* vtop = vbase + PAGE_SIZE; */
+
+                /* if (faultaddress >= vbase && faultaddress < vtop) { */
+                if (faultaddress == vbase) {
+                    paddr = as->as_stack[i]->lp_paddr;
+                    goto skip_regions;
+                }
+            } else {
+                nullpage = i;
+            }
+        }
+
+        KASSERT(i == 256);
+
+        as->as_stack[nullpage] = kmalloc(sizeof(struct lpage));
+        spinlock_acquire(&coremap_lock);
+        paddr = coremap_alloc_page();
+        KASSERT(paddr != 0);
+        as->as_stack[nullpage]->lp_paddr = paddr;
+        as->as_stack[nullpage]->lp_startaddr = faultaddress;
+        spinlock_release(&coremap_lock);
+        bzero((void *)PADDR_TO_KVADDR(paddr), PAGE_SIZE);
+        goto skip_regions;
+    }
+
     for (i = 0; i < as->as_numregions; i++) {
         struct region *region = as->as_regions[i];
 
