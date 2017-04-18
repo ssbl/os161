@@ -37,7 +37,6 @@ sys__exit(int exitcode)
         proc->p_addrspace = NULL;
     }
     as_destroy(as);
-    /* filetable_destroy(proc->p_filetable); */
 
     proc_remthread(cur);
     V(proc->p_sem);

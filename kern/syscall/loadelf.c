@@ -252,7 +252,7 @@ load_elf(struct vnode *v, vaddr_t *entrypoint)
 		if (result) {
 			return result;
 		}
-        kprintf("defining region of size %d\n", ph.p_memsz);
+        /* kprintf("defining region of size %d\n", ph.p_memsz); */
 	}
 
 	result = as_prepare_load(as);

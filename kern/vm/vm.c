@@ -200,5 +200,13 @@ void
 vm_tlbshootdown(const struct tlbshootdown *tlbshootdown)
 {
     (void)tlbshootdown;
-    panic("tried tlbshootdown\n");
+    int i, spl;
+    spl = splhigh();
+
+    for (i=0; i<NUM_TLB; i++) {
+        tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
+    }
+
+    splx(spl);
+    /* panic("tried tlbshootdown\n"); */
 }
