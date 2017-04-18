@@ -13,6 +13,7 @@ unsigned int cm_used_bytes = 0;
 int cm_numpages = 0;
 int cm_first_free_page = 0;
 int cm_start_page = 0;
+bool cm_initted = false;
 
 static int
 countpages(int entries, size_t size_per_entry)
@@ -113,6 +114,7 @@ coremap_alloc_npages(unsigned n)
             for (int j = start; j <= i; j++) {
     			cm_used_bytes += PAGE_SIZE;
 				coremap[j]->cme_is_allocated = 1;
+                coremap[i]->cme_pid = cm_initted ? sys_getpid() : 1;
             }
             break;
         }
@@ -140,6 +142,7 @@ coremap_alloc_page(void)
             coremap[i]->cme_is_last_page = 1;
             paddr = coremap[i]->cme_page->vp_paddr;
             cm_used_bytes += PAGE_SIZE;
+            coremap[i]->cme_pid = cm_initted ? sys_getpid() : 1;
             /* cm_first_free_page = coremap_nextfree(i); */
             break;
         }
@@ -158,12 +161,34 @@ coremap_free_kpages(paddr_t paddr)
     int start = paddr / PAGE_SIZE;
 
     for (int page_number = start; page_number < cm_numpages; page_number++) {
-        kprintf("f");
+        /* kprintf("f"); */
         cm_used_bytes -= PAGE_SIZE;
+        coremap[page_number]->cme_pid = 0;
 		coremap[page_number]->cme_is_allocated = 0;
 		if (coremap[page_number]->cme_is_last_page == 1) {
 			coremap[page_number]->cme_is_last_page = 0;
 			break;
 		}  
 	}
+
+    if (cm_used_bytes < (unsigned)PAGE_SIZE*cm_start_page) {
+        cm_used_bytes = PAGE_SIZE*cm_start_page;
+    }
+}
+
+void
+coremap_clear(pid_t pid)
+{
+    if (pid == 1) {
+        return;
+    }
+
+    for (int i = cm_start_page; i < cm_numpages; i++) {
+        if (coremap[i]->cme_pid == pid) {
+            coremap_free_kpages(i*PAGE_SIZE);
+            /* coremap[i]->cme_is_allocated = 0;
+             * coremap[i]->cme_is_last_page = 0;
+             * coremap[i]->cme_pid = 0; */
+        }
+    }
 }

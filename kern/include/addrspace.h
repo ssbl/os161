@@ -43,6 +43,11 @@ struct vnode;
 #define STACKPAGES 801
 
 
+struct lpage {
+    vaddr_t lp_startaddr;
+    paddr_t lp_paddr;
+};
+
 /*
  * Region - a collection of pages. Each page is indexed by its position
  * in the region.
@@ -81,6 +86,7 @@ struct addrspace {
     vaddr_t as_heapbrk;
     vaddr_t as_heapmax;
     int as_heapidx;
+    struct lpage **as_stack;
 #endif
 };
 

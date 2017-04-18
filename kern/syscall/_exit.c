@@ -10,6 +10,7 @@
 #include <syscall.h>
 #include <proctable.h>
 #include <thread.h>
+#include <addrspace.h>
 
 void
 sys__exit(int exitcode)
@@ -17,6 +18,7 @@ sys__exit(int exitcode)
     int code = _MKWAIT_EXIT(exitcode);
     struct thread *cur;
     struct proc *proc;
+    struct addrspace *as;
 
     spinlock_acquire(&curproc->p_lock);
     proc = curproc;
@@ -26,6 +28,15 @@ sys__exit(int exitcode)
     proc->p_exitstatus = code;
     proc->p_exitcode = exitcode;
 
+    if (proc == curproc) {
+        as = proc_setas(NULL);
+        as_deactivate();
+    }
+    else {
+        as = proc->p_addrspace;
+        proc->p_addrspace = NULL;
+    }
+    as_destroy(as);
     /* filetable_destroy(proc->p_filetable); */
 
     proc_remthread(cur);

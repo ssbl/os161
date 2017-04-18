@@ -36,6 +36,7 @@
 #include <vm.h>
 #include <proc.h>
 #include <coremap.h>
+#include <syscall.h>
 
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM
@@ -68,16 +69,26 @@ as_destroy(struct addrspace *as)
     KASSERT(as != NULL);
 
     unsigned i;
+    /* pid_t pid = sys_getpid(); */
 
+    /* spinlock_acquire(&coremap_lock);
+     * coremap_clear(sys_getpid());
+     * spinlock_release(&coremap_lock); */
     for (i = 0; i < as->as_numregions; i++) {
         struct region *r = as->as_regions[i];
         for (unsigned j = 0; j < r->r_numpages; j++) {
             if (r->r_pages[j] != NULL) {
-                coremap_free_kpages(r->r_pages[j]->vp_paddr);
-                kprintf("a");
+                /* if (coremap[r->r_pages[j]->vp_paddr/PAGE_SIZE]->cme_pid == pid) { */
+                    spinlock_acquire(&coremap_lock);
+                    /* kprintf("%d",
+                     *         coremap[r->r_pages[j]->vp_paddr/PAGE_SIZE]->cme_pid); */
+                    coremap_free_kpages(r->r_pages[j]->vp_paddr);
+                    spinlock_release(&coremap_lock);
+                /* } else
+                 * kprintf("a"); */
             }
         }
-        kprintf("\n");
+        /* kprintf("\n"); */
     }
 
     for (i = 0; i < as->as_numregions; i++) {
@@ -260,6 +271,7 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
     last_region = as->as_regions[as->as_numregions-2];
     as->as_heapbrk = last_region->r_startaddr
         + PAGE_SIZE*last_region->r_numpages;
+    as->as_heapmax = as->as_heapbrk;
 
     /* Initial user-level stack pointer */
     *stackptr = USERSTACK;
@@ -306,6 +318,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 
     newas->as_heapidx = old->as_heapidx;
     newas->as_heapbrk = old->as_heapbrk;
+    newas->as_heapmax = old->as_heapmax;
 
     KASSERT(old->as_numregions == newas->as_numregions);
 
@@ -338,34 +351,4 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 
     *ret = newas;
     return 0;
-}
-
-/*
- * Find first unreferenced page in a region.
- *
- * Returns the page number for that page, or -1 if no such page is found.
- */
-int
-as_unrefd_in_region(struct addrspace *as, int region_idx)
-{
-    KASSERT(as != NULL);
-    KASSERT(region_idx >= 0);
-    KASSERT(region_idx < (int)as->as_numregions);
-
-    int i, pageno = -1;
-    struct region *rgn = as->as_regions[region_idx];
-
-    KASSERT(rgn != NULL);
-
-    for (i = 0; i < (int)rgn->r_numpages; i++) {
-        if (rgn->r_pages[i] != NULL) {
-            int cme_page_idx = rgn->r_pages[i]->vp_paddr / PAGE_SIZE;
-            if (!coremap[cme_page_idx]->cme_is_referenced) {
-                pageno = i;
-                break;
-            }
-        }
-    }
-
-    return pageno;
 }
