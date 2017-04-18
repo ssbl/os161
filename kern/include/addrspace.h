@@ -41,7 +41,7 @@
 struct vnode;
 
 #define STACKPAGES 801
-
+#define LPAGES 128
 
 struct lpage {
     vaddr_t lp_startaddr;
@@ -91,7 +91,7 @@ struct addrspace {
     vaddr_t as_heapbrk;
     vaddr_t as_heapmax;
     int as_heapidx;
-    struct lpage *as_stack[256];
+    struct lpage *as_stack[LPAGES];
 #endif
 };
 

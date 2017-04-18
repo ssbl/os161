@@ -86,17 +86,6 @@ sys_fork(struct trapframe *tf, int *retval)
     filetable_destroy(newproc->p_filetable);
     newproc->p_filetable = newft;
 
-    /* for (int i = 0; i <= newft->ft_maxfd; i++) {
-     *     struct file_entry *fentry = filetable_get(newft, i);
-     *     if (fentry == NULL) {
-     *         kprintf("found null at %d\n", i);
-     *     } else {
-     *         if (fentry->f_lk != NULL) {
-     *             kprintf("found %s at %d\n", fentry->f_name, i);
-     *         }
-     *     }
-     * } */
-
     result = thread_fork(newproc->p_name, newproc,
                          enter_forked_process, newtf, 0);
     if (result) {
@@ -117,7 +106,5 @@ sys_fork(struct trapframe *tf, int *retval)
     }
     lock_release(proctable->pt_lock);
 
-    /* kprintf("newproc's pid = %d\n", newproc->p_ppid);
-     */
     return newproc->p_pid;
 }

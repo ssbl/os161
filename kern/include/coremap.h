@@ -28,6 +28,5 @@ void coremap_init(void);
 paddr_t coremap_alloc_npages(unsigned n);
 paddr_t coremap_alloc_page(void);
 void coremap_free_kpages(paddr_t paddr);
-void coremap_clear(pid_t pid);
 
 #endif  /* _COREMAP_H_ */

@@ -41,12 +41,10 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
     if (as->as_heapmax != 0 && faultaddress >= as->as_heapmax) {
         int nullpage = 0;
-        for (i = 0; i < 256; i++) {
+        for (i = 0; i < LPAGES; i++) {
             if (as->as_stack[i] != NULL) {
                 vbase = as->as_stack[i]->lp_startaddr;
-                /* vtop = vbase + PAGE_SIZE; */
 
-                /* if (faultaddress >= vbase && faultaddress < vtop) { */
                 if (faultaddress == vbase) {
                     paddr = as->as_stack[i]->lp_paddr;
                     goto skip_regions;
@@ -56,15 +54,16 @@ vm_fault(int faulttype, vaddr_t faultaddress)
             }
         }
 
-        KASSERT(i == 256);
+        KASSERT(i == LPAGES);
 
-        as->as_stack[nullpage] = kmalloc(sizeof(struct lpage));
         spinlock_acquire(&coremap_lock);
         paddr = coremap_alloc_page();
+        spinlock_release(&coremap_lock);
         KASSERT(paddr != 0);
+
+        as->as_stack[nullpage] = kmalloc(sizeof(struct lpage));
         as->as_stack[nullpage]->lp_paddr = paddr;
         as->as_stack[nullpage]->lp_startaddr = faultaddress;
-        spinlock_release(&coremap_lock);
         bzero((void *)PADDR_TO_KVADDR(paddr), PAGE_SIZE);
         goto skip_regions;
     }
@@ -89,11 +88,11 @@ vm_fault(int faulttype, vaddr_t faultaddress)
                 KASSERT(paddr != 0);
                 region->r_pages[pageno] = coremap[paddr / PAGE_SIZE]->cme_page;
                 spinlock_release(&coremap_lock);
-                bzero((void *)PADDR_TO_KVADDR(paddr), PAGE_SIZE);
-            }
 
-            paddr = region->r_pages[pageno]->vp_paddr;
-            goto skip_regions;
+                bzero((void *)PADDR_TO_KVADDR(paddr), PAGE_SIZE);
+            } else {
+                paddr = region->r_pages[pageno]->vp_paddr;
+            }
         }
     }
 
@@ -131,29 +130,32 @@ skip_regions:
     /* Disable interrupts on this CPU while frobbing the TLB. */
     spl = splhigh();
 
-add_to_tlb:
-    for (i=0; i<NUM_TLB; i++) {
-        tlb_read(&ehi, &elo, i);
-        if (elo & TLBLO_VALID) {
-            continue;
-        }
-        ehi = faultaddress;
-        elo = paddr | TLBLO_DIRTY | TLBLO_VALID;
-        DEBUG(DB_VM, "dumbvm: 0x%x -> 0x%x\n", faultaddress, paddr);
-        tlb_write(ehi, elo, i);
-        splx(spl);
-        return 0;
-    }
-
-    if (i == NUM_TLB) {
-        for (i = 0; i < NUM_TLB; i++) {
-            tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
-        }
-        goto add_to_tlb;
-    }
+/* add_to_tlb: */
+    elo = paddr | TLBLO_DIRTY | TLBLO_VALID;
+    ehi = faultaddress;
+    tlb_random(ehi, elo);
+    /* for (i=0; i<NUM_TLB; i++) {
+     *     tlb_read(&ehi, &elo, i);
+     *     if (elo & TLBLO_VALID) {
+     *         continue;
+     *     }
+     *     ehi = faultaddress;
+     *     elo = paddr | TLBLO_DIRTY | TLBLO_VALID;
+     *     DEBUG(DB_VM, "dumbvm: 0x%x -> 0x%x\n", faultaddress, paddr);
+     *     tlb_write(ehi, elo, i);
+     *     splx(spl);
+     *     return 0;
+     * }
+     * 
+     * if (i == NUM_TLB) {
+     *     for (i = 0; i < NUM_TLB; i++) {
+     *         tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
+     *     }
+     *     goto add_to_tlb;
+     * } */
 
     splx(spl);
-    return EFAULT;
+    return 0;
 }
 
 vaddr_t
@@ -198,5 +200,5 @@ void
 vm_tlbshootdown(const struct tlbshootdown *tlbshootdown)
 {
     (void)tlbshootdown;
-    kprintf("tried tlbshootdown\n");
+    panic("tried tlbshootdown\n");
 }

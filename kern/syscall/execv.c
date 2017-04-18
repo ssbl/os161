@@ -22,7 +22,7 @@ sys_execv(const_userptr_t program, char **args, int *retval)
     int result;
     unsigned proglen, arglen;
     struct vnode *v;
-    struct addrspace *as;
+    struct addrspace *as, *oldas;
     vaddr_t entrypoint, stackptr, argptr;
     void *kprogram = NULL;
     char **kargs, **kptr;
@@ -120,11 +120,11 @@ sys_execv(const_userptr_t program, char **args, int *retval)
 		return -1;
     }
 
-    as = proc_getas();
-    if (as != NULL) {
-        as_deactivate();
-        as_destroy(as);
-    }
+    oldas = proc_getas();
+    /* if (as != NULL) {
+     *     as_deactivate();
+     *     as_destroy(as);
+     * } */
 
     as = as_create();
     if (as == NULL) {
@@ -205,6 +205,7 @@ sys_execv(const_userptr_t program, char **args, int *retval)
 
     kfree(kprogram);
     kfree(kargs);
+    as_destroy(oldas);
     enter_new_process(argc, (userptr_t)stackptr, NULL, stackptr, entrypoint);
 
     *retval = EINVAL;
