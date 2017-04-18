@@ -5,6 +5,7 @@
 #include <vm.h>
 #include <coremap.h>
 #include <spinlock.h>
+#include <syscall.h>
 
 
 struct cm_entry **coremap;
@@ -73,6 +74,7 @@ coremap_nextfree(int current_index)
     KASSERT(current_index > 0);
 
     int i;
+    bool looped = false;
 find_page:
     for (i = current_index; i < cm_numpages; i++) {
         if (!coremap[i]->cme_is_allocated) {
@@ -80,6 +82,10 @@ find_page:
         }
     }
     current_index = cm_start_page;
+    if (looped) {
+        panic("infinite loop\n");
+    }
+    looped = true;
     goto find_page;
 }
 
@@ -94,7 +100,7 @@ coremap_alloc_npages(unsigned n)
 
     for (int i = start; i < entries; i++) {
         if (coremap[i]->cme_is_allocated) {
-            pages_found = 0;
+            pages_found = 1;
             start = coremap_nextfree(i);
             i = start;
         } else {
@@ -112,9 +118,7 @@ coremap_alloc_npages(unsigned n)
         }
     }
 
-    if (pages_found != n) {
-        cm_used_bytes += pages_found * PAGE_SIZE;
-    }
+    KASSERT(pages_found == n);
 
     if (cm_first_free_page == start) {
         cm_first_free_page = coremap_nextfree(start);
@@ -130,12 +134,13 @@ coremap_alloc_page(void)
     paddr_t paddr = 0;
     int i, entries = cm_numpages;
 
-    for (i = cm_first_free_page; i < entries; i++) {
+    for (i = cm_start_page; i < entries; i++) {
         if (!coremap[i]->cme_is_allocated) {
             coremap[i]->cme_is_allocated = 1;
             coremap[i]->cme_is_last_page = 1;
             paddr = coremap[i]->cme_page->vp_paddr;
             cm_used_bytes += PAGE_SIZE;
+            /* cm_first_free_page = coremap_nextfree(i); */
             break;
         }
     }
@@ -143,7 +148,6 @@ coremap_alloc_page(void)
     /* coremap[first_free_page]->cme_is_allocated = 1;
      * coremap[first_free_page]->cme_is_last_page = 1; */
 
-    /* first_free_page = coremap_nextfree(first_free_page); */
 
     return paddr;
 }
@@ -153,7 +157,8 @@ coremap_free_kpages(paddr_t paddr)
 {
     int start = paddr / PAGE_SIZE;
 
-    for (int page_number = start ; ; page_number++) {
+    for (int page_number = start; page_number < cm_numpages; page_number++) {
+        kprintf("f");
         cm_used_bytes -= PAGE_SIZE;
 		coremap[page_number]->cme_is_allocated = 0;
 		if (coremap[page_number]->cme_is_last_page == 1) {

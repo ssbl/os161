@@ -18,6 +18,7 @@ struct cm_entry {
 
 
 int cm_numpages;
+int cm_start_page;
 int cm_first_free_page;
 unsigned int cm_used_bytes;
 

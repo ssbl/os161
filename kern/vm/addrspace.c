@@ -65,10 +65,28 @@ as_create(void)
 void
 as_destroy(struct addrspace *as)
 {
-    /*
-     * Clean up as needed.
-     */
+    KASSERT(as != NULL);
 
+    unsigned i;
+
+    for (i = 0; i < as->as_numregions; i++) {
+        struct region *r = as->as_regions[i];
+        for (unsigned j = 0; j < r->r_numpages; j++) {
+            if (r->r_pages[j] != NULL) {
+                coremap_free_kpages(r->r_pages[j]->vp_paddr);
+                kprintf("a");
+            }
+        }
+        kprintf("\n");
+    }
+
+    for (i = 0; i < as->as_numregions; i++) {
+        if (as->as_regions[i] != NULL) {
+            kfree(as->as_regions[i]->r_pages);
+        }
+    }
+
+    kfree(as->as_regions);
     kfree(as);
 }
 
@@ -136,7 +154,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
         if (as->as_numregions == 0) { /* create two slots if it's empty */
             regionptr = kmalloc(2*sizeof(*as->as_regions));
         } else {
-            regionptr = kmalloc((2*as->as_numregions + 1)
+            regionptr = kmalloc((2*as->as_numregions)
                                 * sizeof(*as->as_regions));
         }
         if (regionptr == NULL) {
@@ -149,7 +167,6 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
         as->as_regions = regionptr;
     }
 
-    /* WARNING: Could run out of physical memory when calling kmalloc */
     as->as_regions[free_region] = kmalloc(sizeof(struct region));
     if (as->as_regions[free_region] == NULL) {
         return ENOMEM;
@@ -207,11 +224,6 @@ as_complete_load(struct addrspace *as)
     KASSERT(as != NULL);
     KASSERT(as->as_regions[as->as_numregions] == NULL);
 
-    /* INCOMPLETE: This is most likely wrong. */
-    struct region *last_region = as->as_regions[as->as_numregions - 1];
-    as->as_heapbrk = last_region->r_startaddr
-        + last_region->r_numpages * PAGE_SIZE;
-
     return 0;
 }
 
@@ -222,7 +234,7 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
     KASSERT(stackptr != NULL);
     KASSERT(as->as_regions != NULL);
 
-    struct region *stack = NULL;
+    struct region *stack = NULL, *last_region = NULL;
 
     int result;
     vaddr_t vaddr = USERSTACK - STACKPAGES*PAGE_SIZE;
@@ -240,6 +252,14 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
     for (unsigned i = 0; i < stack->r_numpages; i++) {
         stack->r_pages[i] = NULL;
     }
+
+    /* Stack region index = numregions-1 */
+    /* Whatever is allocated after creating the stack is part of the heap */
+    as->as_heapidx = as->as_numregions;
+    /* Whatever is allocated before the stacktop is part of the heap */
+    last_region = as->as_regions[as->as_numregions-2];
+    as->as_heapbrk = last_region->r_startaddr
+        + PAGE_SIZE*last_region->r_numpages;
 
     /* Initial user-level stack pointer */
     *stackptr = USERSTACK;
@@ -284,6 +304,9 @@ as_copy(struct addrspace *old, struct addrspace **ret)
         return result;
     }
 
+    newas->as_heapidx = old->as_heapidx;
+    newas->as_heapbrk = old->as_heapbrk;
+
     KASSERT(old->as_numregions == newas->as_numregions);
 
     for (i = 0; i < newas->as_numregions; i++) {
@@ -309,7 +332,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
         }
     }
 
-    /* KASSERT(old->as_heapbrk == newas->as_heapbrk); */
+    KASSERT(old->as_heapbrk == newas->as_heapbrk);
     KASSERT(old->as_heapmax == newas->as_heapmax);
     KASSERT(old->as_heapidx == newas->as_heapidx);
 

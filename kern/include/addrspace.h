@@ -40,7 +40,7 @@
 
 struct vnode;
 
-#define STACKPAGES 18           /* same as dumbvm's */
+#define STACKPAGES 801
 
 
 /*

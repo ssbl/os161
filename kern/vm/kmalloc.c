@@ -1266,11 +1266,7 @@ kfree(void *ptr)
 		return;
 	} else if (subpage_kfree(ptr)) {
 		KASSERT((vaddr_t)ptr%PAGE_SIZE==0);
-        if ((vaddr_t)ptr > MIPS_KSEG0) {
-            free_kpages((vaddr_t)ptr);
-        } else {
-            /* free user page here */
-        }
+        free_kpages((vaddr_t)ptr);
 	}
 }
 

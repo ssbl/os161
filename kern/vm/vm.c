@@ -18,13 +18,10 @@ vm_bootstrap(void)
 int
 vm_fault(int faulttype, vaddr_t faultaddress)
 {
-    (void)faultaddress;
-
-    unsigned i;
+    unsigned i = 0;
     struct addrspace *as;
 
-    int spl;
-    /* int index; */
+    int spl, pageno;
     uint32_t ehi, elo;
     vaddr_t vtop, vbase;
     paddr_t paddr = 0;
@@ -53,37 +50,24 @@ vm_fault(int faulttype, vaddr_t faultaddress)
         vtop = vbase + PAGE_SIZE * region->r_numpages;
 
         if (faultaddress >= vbase && faultaddress < vtop) {
-            /* int tlb_index; */
-            int pageno = (faultaddress - vbase) / PAGE_SIZE;
+            pageno = (faultaddress - vbase) / PAGE_SIZE;
             if (region->r_pages[pageno] == NULL) {
-                /* kprintf("oom page!\n"); */
                 /* OOM page, need to allocate */
 
+                spinlock_acquire(&coremap_lock);
                 paddr = coremap_alloc_page();
+                KASSERT(paddr != 0);
                 region->r_pages[pageno] = coremap[paddr / PAGE_SIZE]->cme_page;
-                /* Invalidate its TLB entry */
-                /* spl = splhigh();
-                 * vaddr_t page_vaddr = vbase + unrefd_page*PAGE_SIZE;
-                 * if ( (tlb_index = tlb_probe(page_vaddr & PAGE_FRAME, 0)) != -1) {
-                 *     kprintf("invalidating\n");
-                 *     tlb_write(TLBHI_INVALID(tlb_index),
-                 *               TLBLO_INVALID(), tlb_index);
-                 * }
-                 * if ( (tlb_index = tlb_probe(faultaddress, 0)) != -1) {
-                 *     kprintf("invalidating\n");
-                 *     tlb_write(TLBHI_INVALID(tlb_index),
-                 *               TLBLO_INVALID(), tlb_index);
-                 * }
-                 * splx(spl); */
+                spinlock_release(&coremap_lock);
                 bzero((void *)PADDR_TO_KVADDR(paddr), PAGE_SIZE);
             }
 
             paddr = region->r_pages[pageno]->vp_paddr;
-            coremap[paddr / PAGE_SIZE]->cme_is_referenced = 1;
-            break;
+            goto skip_regions;
         }
     }
 
+skip_regions:
     if (paddr == 0) {
         return EFAULT;
     }
@@ -184,4 +168,5 @@ void
 vm_tlbshootdown(const struct tlbshootdown *tlbshootdown)
 {
     (void)tlbshootdown;
+    kprintf("tried tlbshootdown\n");
 }

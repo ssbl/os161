@@ -103,11 +103,11 @@ load_segment(struct addrspace *as, struct vnode *v,
 	u.uio_rw = UIO_READ;
 	u.uio_space = as;
 
-    /* kprintf("VOP_READ\n"); */
 	result = VOP_READ(v, &u);
 	if (result) {
 		return result;
 	}
+    /* kprintf("VOP_READ\n"); */
 
 	if (u.uio_resid != 0) {
 		/* short read; problem with executable? */

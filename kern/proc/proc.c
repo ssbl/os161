@@ -52,6 +52,7 @@
 #include <vnode.h>
 #include <proctable.h>
 #include <filetable.h>
+#include <syscall.h>
 
 /*
  * The process for the kernel; this holds all the kernel-only threads.
@@ -212,9 +213,7 @@ proc_destroy(struct proc *proc)
 	KASSERT(proc->p_numthreads == 0);
 	spinlock_cleanup(&proc->p_lock);
 
-    /* if (proc->p_pid > 1) {
-     *     filetable_destroy(proc->p_filetable);
-     * } */
+    kfree(arg);
 	kfree(proc->p_name);
 	kfree(proc);
 }

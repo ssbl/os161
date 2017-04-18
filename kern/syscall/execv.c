@@ -120,11 +120,11 @@ sys_execv(const_userptr_t program, char **args, int *retval)
 		return -1;
     }
 
-    /* as = proc_getas();
-     * if (as != NULL) {
-     *     as_deactivate();
-     *     as_destroy(as);
-     * } */
+    as = proc_getas();
+    if (as != NULL) {
+        as_deactivate();
+        as_destroy(as);
+    }
 
     as = as_create();
     if (as == NULL) {
