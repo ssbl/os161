@@ -58,7 +58,6 @@ sys_read(int fd, userptr_t user_buf, size_t buflen, int *retval)
     }
 
     lock_acquire(fentry->f_lk);
-    fentry->f_refcount += 1;
     vnode = fentry->f_node;
     uio.uio_offset = fentry->f_offset;
 
@@ -82,7 +81,6 @@ sys_read(int fd, userptr_t user_buf, size_t buflen, int *retval)
     /* store return value, update offset */
     result = uio.uio_offset - fentry->f_offset;
     fentry->f_offset += uio.uio_offset;
-    fentry->f_refcount -= 1;
     lock_release(fentry->f_lk);
 
     kfree(kbuffer);
