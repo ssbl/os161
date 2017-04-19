@@ -242,20 +242,20 @@ filetable_remove(struct filetable *ft, int fd)
     }
 
     fentry = file_entryarray_get(ft->ft_fdarray, fd);
-    if (fentry == NULL) {
+    if (!bitset_isset(ft, fd)) {
         return 0;               /* already removed, do nothing */
     }
 
-    if (fentry->f_refcount > 0) { /* HACK */
-        /* remove this entry */
-        file_entry_destroy(fentry);
-    }
+    /* if (fentry->f_refcount > 0) { /\* HACK *\/
+     *     remove this entry */
+    file_entry_destroy(fentry);
+    /* } */
 
     /* update maxfd, openfds */
     if (fd == ft->ft_maxfd) {
         for (i = fd - 1; i >= 0; i--) {
             fentry = file_entryarray_get(ft->ft_fdarray, i);
-            if (fentry != NULL) {
+            if (bitset_isset(ft, fd)) {
                 break;
             }
         }
