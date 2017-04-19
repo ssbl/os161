@@ -101,17 +101,6 @@ proc_create(const char *name)
 		return NULL;
 	}
 
-    /* add it to the process table */
-    /* if (kproc != NULL) {
-     *     int result = proctable_add(proctable, proc);
-     *     if (result) {
-     *         kfree(proc->p_name);
-     *         spinlock_cleanup(&proc->p_lock);
-     *         kfree(proc);
-     *         return NULL;
-     *     }
-     * } */
-
     proc->p_sem = sem_create("p_sem", 0);
     if (proc->p_sem == NULL) {
         kfree(proc->p_name);
@@ -119,9 +108,6 @@ proc_create(const char *name)
         kfree(proc);
         return NULL;
     }        
-
-    proc->p_lk = lock_create("p_lk");
-    proc->p_cv = cv_create("p_cv");
 
     proc->p_exitcode = -1;
     proc->p_exitstatus = -1;
@@ -213,9 +199,9 @@ proc_destroy(struct proc *proc)
 	KASSERT(proc->p_numthreads == 0);
 	spinlock_cleanup(&proc->p_lock);
 
+    sem_destroy(proc->p_sem);
     filetable_destroy(proc->p_filetable);
 
-    kfree(arg);
 	kfree(proc->p_name);
 	kfree(proc);
 }
