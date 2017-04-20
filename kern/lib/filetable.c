@@ -389,7 +389,9 @@ filetable_destroy(struct filetable *ft)
         }
     }
 
-    kfree(ft->ft_fdarray);
+    /* kfree(ft->ft_fdarray); */
+    file_entryarray_setsize(ft->ft_fdarray, 0);
+    file_entryarray_destroy(ft->ft_fdarray);
     kfree(ft->ft_bitset);
     kfree(ft);
     ft = NULL;
