@@ -38,6 +38,12 @@ sys__exit(int exitcode)
     filetable_destroy(proc->p_filetable);
     kfree(proc->p_name);
 
+    /* for (int i = cm_start_page; i < cm_numpages; i++) {
+     *     if (coremap[i]->cme_pid == pid) {
+     *         kprintf("page %d owned by pid %d\n", i, pid);
+     *     }
+     * } */
+
     proc_remthread(cur);
     V(proc->p_sem);
     /* exited, signal waiting parent process */

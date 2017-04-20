@@ -84,6 +84,7 @@ proctable_remove(struct proctable *pt, int pid)
                 break;
             }
         }
+        procarray_setsize(pt->pt_procs, pt->pt_maxpid+1);
     }
     pt->pt_numprocs -= 1;
 
@@ -135,15 +136,12 @@ proctable_destroy(struct proctable *pt)
 {
     KASSERT(pt != NULL);
 
-    int i;
-    struct proc *proc;
+    /* for (int i = 0; i < pt->pt_maxpid; i++) {
+     *     procarray_remove(pt->pt_procs, i);
+     * } */
 
-    for (i = 0; i < pt->pt_maxpid; i++) {
-        proc = proctable_get(pt, i);
-        if (proc != NULL) {
-            proctable_remove(pt, i);
-        }
-    }
+    procarray_setsize(pt->pt_procs, 0);
+    procarray_destroy(pt->pt_procs);
 
     kfree(pt);
     pt = NULL;

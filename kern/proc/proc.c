@@ -217,6 +217,16 @@ proc_destroy(struct proc *proc)
 	kfree(proc);
 }
 
+void
+kproc_destroy(void)
+{
+    spinlock_cleanup(&kproc->p_lock);
+    filetable_destroy(kproc->p_filetable);
+    sem_destroy(kproc->p_sem);
+    kfree(kproc->p_name);
+    kfree(kproc);
+}
+
 /*
  * Create the process structure for the kernel.
  */
