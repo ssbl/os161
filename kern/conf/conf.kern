@@ -404,6 +404,7 @@ file      syscall/fork.c
 file      syscall/__getcwd.c
 file      syscall/chdir.c
 file      syscall/execv.c
+file      syscall/sbrk.c
 
 #
 # Startup and initialization

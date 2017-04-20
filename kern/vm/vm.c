@@ -39,7 +39,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
     KASSERT(as->as_regions != NULL);
 
-    if (as->as_heapmax != 0 && faultaddress >= as->as_heapmax) {
+    if (as->as_heapmax != 0 && faultaddress > as->as_heapbrk) {
         int nullpage = 0;
         for (i = 0; i < LPAGES; i++) {
             if (as->as_stack[i] != NULL) {
@@ -56,15 +56,54 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
         KASSERT(i == LPAGES);
 
+        as->as_heapmax = faultaddress;
+
         spinlock_acquire(&coremap_lock);
         paddr = coremap_alloc_page();
         spinlock_release(&coremap_lock);
-        KASSERT(paddr != 0);
 
         as->as_stack[nullpage] = kmalloc(sizeof(struct lpage));
         as->as_stack[nullpage]->lp_paddr = paddr;
         as->as_stack[nullpage]->lp_startaddr = faultaddress;
         bzero((void *)PADDR_TO_KVADDR(paddr), PAGE_SIZE);
+        goto skip_regions;
+    } else if (faultaddress >= as->as_heapstart &&
+               faultaddress < as->as_heapbrk) {
+        int nullpage = 0;
+        for (i = 0; i < HEAPPAGES; i++) {
+            if (as->as_heap[i] != NULL && as->as_heap[i]->lp_freed == 0) {
+                vbase = as->as_heap[i]->lp_startaddr;
+
+                if (faultaddress == vbase) {
+                    paddr = as->as_heap[i]->lp_paddr;
+                    goto skip_regions;
+                }
+            } else {
+                nullpage = i;
+            }
+        }
+
+        KASSERT(i == HEAPPAGES);
+
+        spinlock_acquire(&coremap_lock);
+        paddr = coremap_alloc_page();
+        spinlock_release(&coremap_lock);
+
+        /* KASSERT(paddr != 0); */
+
+        if (as->as_heap[nullpage] == NULL) {
+            as->as_heap[nullpage] = kmalloc(sizeof(struct lpage));
+        }
+
+        as->as_heap[nullpage]->lp_freed = 0;
+        as->as_heap[nullpage]->lp_paddr = paddr;
+        as->as_heap[nullpage]->lp_startaddr = faultaddress;
+        bzero((void *)PADDR_TO_KVADDR(paddr), PAGE_SIZE);
+        /* kprintf("vm_fault: creating entry %d: {%u,%u,%d}\n",
+         *         nullpage,
+         *         as->as_heap[nullpage]->lp_freed,
+         *         as->as_heap[nullpage]->lp_paddr,
+         *         as->as_heap[nullpage]->lp_startaddr); */
         goto skip_regions;
     }
 
@@ -146,7 +185,7 @@ skip_regions:
      *     splx(spl);
      *     return 0;
      * }
-     * 
+     *
      * if (i == NUM_TLB) {
      *     for (i = 0; i < NUM_TLB; i++) {
      *         tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);

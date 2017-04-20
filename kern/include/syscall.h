@@ -72,7 +72,7 @@ int sys_chdir(const_userptr_t pathname, int *retval);
 int sys___getcwd(userptr_t buf, size_t buflen, int *retval);
 pid_t sys_waitpid(pid_t pid, userptr_t status, int options, int *retval);
 int sys_execv(const_userptr_t program, char **args, int *retval);
-void *sys_sbrk(intptr_t amount, int *retval);
+int sys_sbrk(intptr_t amount, int *retval);
 void sys__exit(int exitcode);
 int sys___time(userptr_t user_seconds, userptr_t user_nanoseconds);
 

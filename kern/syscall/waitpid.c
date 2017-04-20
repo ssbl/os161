@@ -46,8 +46,8 @@ sys_waitpid (pid_t pid, userptr_t status, int options, int *retval)
     }
 
     lock_release(proctable->pt_lock);
-    kprintf("child = %d\n", child->p_pid);
     P(child->p_sem);
+    kprintf("child = %d\n", child->p_pid);
     if (child->p_exitcode >= 0) {
         if (!nostatus) {
             result = copyout(&child->p_exitstatus, status, sizeof(int));

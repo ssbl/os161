@@ -42,10 +42,12 @@ struct vnode;
 
 #define STACKPAGES 801
 #define LPAGES 128
+#define HEAPPAGES 256
 
 struct lpage {
     vaddr_t lp_startaddr;
     paddr_t lp_paddr;
+    bool lp_freed:1;
 };
 
 struct dregion {
@@ -88,10 +90,12 @@ struct addrspace {
     /* Put stuff here for your VM system */
     struct region **as_regions;
     unsigned as_numregions;
+    vaddr_t as_heapstart;
     vaddr_t as_heapbrk;
     vaddr_t as_heapmax;
     int as_heapidx;
     struct lpage *as_stack[LPAGES];
+    struct lpage *as_heap[HEAPPAGES];
 #endif
 };
 

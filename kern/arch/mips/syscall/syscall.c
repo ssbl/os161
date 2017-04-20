@@ -165,7 +165,7 @@ syscall(struct trapframe *tf)
         }
         break;
 
-    	case SYS_lseek:
+        case SYS_lseek:
         /* kprintf("a0 = %d, a1 = %d, a2 = %d, a3 = %d\n",
          *         tf->tf_a0, tf->tf_a1, tf->tf_a2, tf->tf_a3); */
         stackbuf = kmalloc(sizeof(uint32_t) + 1); /* 32-bit data + delim */
@@ -218,43 +218,43 @@ syscall(struct trapframe *tf)
         }
         break;
 
-		case SYS_fork:
+        case SYS_fork:
         err=sys_fork(tf, &retval);
-		if (err != -1) {
-			retval=err;
-			err=0;
-		} else {
+        if (err != -1) {
+            retval=err;
+            err=0;
+        } else {
             err = retval;
         }
-		break;
+        break;
 
-		case SYS_getpid:
-        err=sys_getpid();	
+        case SYS_getpid:
+        err=sys_getpid();
         retval = err;
-		err=0;
-		break;
+        err=0;
+        break;
 
-		case SYS___getcwd:
-	    err = sys___getcwd((userptr_t)tf->tf_a0,
+        case SYS___getcwd:
+        err = sys___getcwd((userptr_t)tf->tf_a0,
                            tf->tf_a1,
                            &retval);
         if (err != -1) {
-			retval=err;
-			err=0;
-		} else {
+            retval=err;
+            err=0;
+        } else {
             err = retval;
         }
-		break;
-		
-		case SYS_chdir:
+        break;
+
+        case SYS_chdir:
         err = sys_chdir((const_userptr_t)tf->tf_a0, &retval);
-		if (err != -1) {
-			retval=err;
+        if (err != -1) {
+            retval=err;
             err = 0;
-		} else {
+        } else {
             err = retval;
         }
-		break;
+        break;
 
         case SYS_waitpid:
         err = sys_waitpid(tf->tf_a0, (userptr_t)tf->tf_a1, tf->tf_a2, &retval);
@@ -262,22 +262,31 @@ syscall(struct trapframe *tf)
             retval = err;
             err = 0;
         }
-		else {
-			err = retval;
-		}
+        else {
+            err = retval;
+        }
         break;
 
-    	case SYS_execv:
+        case SYS_execv:
         err = sys_execv((const_userptr_t)tf->tf_a0,
                         (char **)tf->tf_a1, &retval);
         if (err != -1) {
-			retval = err;
-			err = 0;
-		}
-		else {
-			err = retval;
-		}
-		break;
+            retval = err;
+            err = 0;
+        }
+        else {
+            err = retval;
+        }
+        break;
+
+        case SYS_sbrk:
+        err = sys_sbrk(tf->tf_a0, &retval);
+        if (err != -1) {
+            err = 0;
+        } else {
+            err = retval;
+        }
+        break;
 
         case SYS__exit:
             err = tf->tf_a0;
@@ -334,7 +343,7 @@ enter_forked_process(void *tf, long unsigned int stackptr)
     struct trapframe *tfptr = tf, newtf;
 
     as_activate();
-    
+
     bzero(&newtf, sizeof(newtf));
     newtf = *tfptr;
     newtf.tf_epc = tfptr->tf_epc + 4;

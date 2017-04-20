@@ -55,13 +55,25 @@ as_create(void)
     }
 
     as->as_regions = kmalloc(sizeof(struct region *));
+    if (as->as_regions == NULL) {
+        kfree(as);
+        return NULL;
+    }
 
     as->as_numregions = 0;
     as->as_heapmax = 0;
+    as->as_heapbrk = 0;
+    as->as_heapstart = 0;
     as->as_regions[0] = NULL;
 
     for (int i = 0; i < LPAGES; i++) {
         as->as_stack[i] = NULL;
+    }
+
+    /* as->as_heap = kmalloc(HEAPPAGES * sizeof(struct lpage *)); */
+    for (int i = 0; i < HEAPPAGES; i++) {
+        /* as->as_heap[i] = kmalloc(sizeof(struct lpage)); */
+        as->as_heap[i] = NULL;
     }
 
     return as;
@@ -88,6 +100,14 @@ as_destroy(struct addrspace *as)
         if (as->as_stack[i] != NULL) {
             coremap_free_kpages(as->as_stack[i]->lp_paddr);
             kfree(as->as_stack[i]);
+        }
+    }
+    for (i = 0; i < HEAPPAGES; i++) {
+        if (as->as_heap[i] != NULL) {
+            if (!as->as_heap[i]->lp_freed) {
+                coremap_free_kpages(as->as_heap[i]->lp_paddr);
+            }
+            kfree(as->as_heap[i]);
         }
     }
 
@@ -246,7 +266,8 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
     last_region = as->as_regions[as->as_numregions-1];
     as->as_heapbrk = last_region->r_startaddr
         + PAGE_SIZE*last_region->r_numpages;
-    as->as_heapmax = as->as_heapbrk;
+    as->as_heapstart = as->as_heapbrk;
+    as->as_heapmax = USERSTACK;
 
     /* Initial user-level stack pointer */
     *stackptr = USERSTACK;
@@ -261,20 +282,20 @@ as_define_stack2(struct addrspace *as, vaddr_t *stackptr)
     KASSERT(stackptr);
 
     struct region *stack = NULL, *last_region = NULL;
-    
+
     int result;
     vaddr_t vaddr = USERSTACK - STACKPAGES*PAGE_SIZE;
     size_t memsize = STACKPAGES * PAGE_SIZE;
-    
+
     result = as_define_region(as, vaddr, memsize, 4, 2, 0);
     if (result) {
         return result;
     }
-    
+
     stack = as->as_regions[as->as_numregions-1];
     stack->r_numpages = STACKPAGES;
     stack->r_pages = kmalloc(STACKPAGES * sizeof(struct vpage *));
-    
+
     for (unsigned i = 0; i < stack->r_numpages; i++) {
         stack->r_pages[i] = NULL;
     }
@@ -328,10 +349,6 @@ as_copy(struct addrspace *old, struct addrspace **ret)
         return result;
     }
 
-    newas->as_heapidx = old->as_heapidx;
-    newas->as_heapbrk = old->as_heapbrk;
-    newas->as_heapmax = old->as_heapmax;
-
     KASSERT(old->as_numregions == newas->as_numregions);
 
     /* spinlock_acquire(&coremap_lock); */
@@ -380,11 +397,35 @@ as_copy(struct addrspace *old, struct addrspace **ret)
                     PAGE_SIZE);
         }
     }
+    for (i = 0; i < HEAPPAGES; i++) {
+        if (old->as_heap[i] != NULL && !old->as_heap[i]->lp_freed) {
+            newas->as_heap[i] = kmalloc(sizeof(struct lpage));
+            newas->as_heap[i]->lp_startaddr = old->as_heap[i]->lp_startaddr;
+            newas->as_heap[i]->lp_freed = 0;
+
+            spinlock_acquire(&coremap_lock);
+            newas->as_heap[i]->lp_paddr = coremap_alloc_page();
+            if (newas->as_heap[i]->lp_paddr == 0) {
+                spinlock_release(&coremap_lock);
+                return ENOMEM;
+            }
+            spinlock_release(&coremap_lock);
+
+            memmove((void *)PADDR_TO_KVADDR(newas->as_heap[i]->lp_paddr),
+                    (const void *)PADDR_TO_KVADDR(old->as_heap[i]->lp_paddr),
+                    PAGE_SIZE);
+        }
+    }
     /* spinlock_release(&coremap_lock); */
 
+    newas->as_heapidx = old->as_heapidx;
+    newas->as_heapbrk = old->as_heapbrk;
+    newas->as_heapmax = old->as_heapmax;
+    newas->as_heapstart = old->as_heapstart;
     KASSERT(old->as_heapbrk == newas->as_heapbrk);
     KASSERT(old->as_heapmax == newas->as_heapmax);
     KASSERT(old->as_heapidx == newas->as_heapidx);
+    KASSERT(old->as_heapstart == newas->as_heapstart);
 
     *ret = newas;
     return 0;
