@@ -95,6 +95,7 @@ find_page:
 paddr_t
 coremap_alloc_npages(unsigned n)
 {
+    pid_t pid = cm_initted ? sys_getpid() : 1;
     int entries = cm_numpages;
     int start = cm_first_free_page;
     unsigned pages_found = 0;
@@ -114,7 +115,7 @@ coremap_alloc_npages(unsigned n)
             for (int j = start; j <= i; j++) {
     			cm_used_bytes += PAGE_SIZE;
 				coremap[j]->cme_is_allocated = 1;
-                coremap[j]->cme_pid = cm_initted ? sys_getpid() : 1;
+                coremap[j]->cme_pid = pid;
             }
             break;
         }
@@ -133,6 +134,7 @@ coremap_alloc_npages(unsigned n)
 paddr_t
 coremap_alloc_page(void)
 {
+    pid_t pid = cm_initted ? sys_getpid() : 1;
     paddr_t paddr = 0;
     int i, entries = cm_numpages;
 
@@ -142,7 +144,7 @@ coremap_alloc_page(void)
             coremap[i]->cme_is_last_page = 1;
             paddr = coremap[i]->cme_page->vp_paddr;
             cm_used_bytes += PAGE_SIZE;
-            coremap[i]->cme_pid = cm_initted ? sys_getpid() : 1;
+            coremap[i]->cme_pid = pid;
             /* cm_first_free_page = coremap_nextfree(i); */
             break;
         }

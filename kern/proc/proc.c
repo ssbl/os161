@@ -53,6 +53,7 @@
 #include <proctable.h>
 #include <filetable.h>
 #include <syscall.h>
+#include <coremap.h>
 
 /*
  * The process for the kernel; this holds all the kernel-only threads.
@@ -197,12 +198,21 @@ proc_destroy(struct proc *proc)
 	}
 
 	KASSERT(proc->p_numthreads == 0);
-	spinlock_cleanup(&proc->p_lock);
+    spinlock_cleanup(&proc->p_lock);
 
     sem_destroy(proc->p_sem);
-    filetable_destroy(proc->p_filetable);
 
-	kfree(proc->p_name);
+    /* for (int i = cm_start_page; i < cm_numpages; i++) {
+     *     if (coremap[i]->cme_pid == proc->p_pid) {
+     *         KASSERT(coremap[i]->cme_is_allocated == 1);
+     *         /\* kprintf("%d{a=%d,l=%d} owned by %d\n",
+     *          *         i, coremap[i]->cme_is_last_page,
+     *          *         coremap[i]->cme_is_allocated, pid); *\/
+     *         free_kpages(PADDR_TO_KVADDR(coremap[i]->cme_page->vp_paddr));
+     *     }
+     * } */
+
+	/* kfree(proc->p_name); */
 	kfree(proc);
 }
 
@@ -294,7 +304,7 @@ proc_create_runprogram(const char *name)
         panic("couldn't copy filetable for runprogram\n");
     }
 
-    newproc->p_ppid = 1;
+    newproc->p_ppid = 2;
     lock_acquire(proctable->pt_lock);
     if (proctable_add(proctable, newproc) != 0) {
         panic("couldn't create process for runprogram\n");

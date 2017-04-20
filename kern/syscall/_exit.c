@@ -11,6 +11,7 @@
 #include <proctable.h>
 #include <thread.h>
 #include <addrspace.h>
+#include <coremap.h>
 
 void
 sys__exit(int exitcode)
@@ -19,10 +20,13 @@ sys__exit(int exitcode)
     struct thread *cur;
     struct proc *proc;
     struct addrspace *as;
+    pid_t pid;
 
     spinlock_acquire(&curproc->p_lock);
     proc = curproc;
     cur = curthread;
+    pid = curproc->p_pid;
+    (void)pid;
     spinlock_release(&curproc->p_lock);
 
     proc->p_exitstatus = code;
@@ -37,6 +41,10 @@ sys__exit(int exitcode)
         proc->p_addrspace = NULL;
     }
     as_destroy(as);
+
+    filetable_destroy(proc->p_filetable);
+
+    kfree(proc->p_name);
 
     proc_remthread(cur);
     V(proc->p_sem);

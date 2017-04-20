@@ -46,6 +46,7 @@ sys_execv(const_userptr_t program, char **args, int *retval)
 
     kprogram = kmalloc(20);
     if (kprogram == NULL) {
+        kfree(arg);
         *retval = ENOMEM;
 		return -1;
     }
@@ -85,13 +86,13 @@ sys_execv(const_userptr_t program, char **args, int *retval)
             goto fail;
         }
         /* kprintf("got arg %d: %s\n", i, arg); */
-        if (kptr == NULL) {
-            kptr = kmalloc(4);
-            if (kptr == NULL) {
-                *retval = ENOMEM;
-                goto fail;
-            }
-        }
+        /* if (kptr == NULL) {
+         *     kptr = kmalloc(4);
+         *     if (kptr == NULL) {
+         *         *retval = ENOMEM;
+         *         goto fail;
+         *     }
+         * } */
 
         kargs[i] = arg;
         if (kargs[i] == NULL) {
@@ -111,7 +112,6 @@ sys_execv(const_userptr_t program, char **args, int *retval)
         goto fail;
     }
 
-    oldas = proc_getas();
     /* if (as != NULL) {
      *     as_deactivate();
      *     as_destroy(as);
@@ -124,7 +124,7 @@ sys_execv(const_userptr_t program, char **args, int *retval)
         goto fail;
     }
 
-    proc_setas(as);
+    oldas = proc_setas(as);
     as_activate();
 
     result = load_elf(v, &entrypoint);
