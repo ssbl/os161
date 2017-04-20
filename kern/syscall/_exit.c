@@ -32,18 +32,10 @@ sys__exit(int exitcode)
     proc->p_exitstatus = code;
     proc->p_exitcode = exitcode;
 
-    if (proc == curproc) {
-        as = proc_setas(NULL);
-        as_deactivate();
-    }
-    else {
-        as = proc->p_addrspace;
-        proc->p_addrspace = NULL;
-    }
+    as = proc_getas();
     as_destroy(as);
 
     filetable_destroy(proc->p_filetable);
-
     kfree(proc->p_name);
 
     proc_remthread(cur);

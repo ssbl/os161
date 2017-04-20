@@ -89,7 +89,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
         paddr = coremap_alloc_page();
         spinlock_release(&coremap_lock);
 
-        /* KASSERT(paddr != 0); */
+        KASSERT(paddr != 0);
 
         if (as->as_heap[nullpage] == NULL) {
             as->as_heap[nullpage] = kmalloc(sizeof(struct lpage));
@@ -204,6 +204,7 @@ alloc_kpages(unsigned npages)
     /* return 1; */
     /* return PADDR_TO_KVADDR(ram_stealmem(npages)); */
     paddr_t paddr;
+
     spinlock_acquire(&coremap_lock);
     if (npages > 1) {
         paddr = coremap_alloc_npages(npages);

@@ -150,7 +150,7 @@ proc_destroy(struct proc *proc)
 	}
 
 	/* VM fields */
-	if (proc->p_addrspace) {
+	/* if (proc->p_addrspace) { */
 		/*
 		 * If p is the current process, remove it safely from
 		 * p_addrspace before destroying it. This makes sure
@@ -184,22 +184,23 @@ proc_destroy(struct proc *proc)
 		 * incorrect to destroy the proc structure of some
 		 * random other process while it's still running...
 		 */
-		struct addrspace *as;
-
-		if (proc == curproc) {
-			as = proc_setas(NULL);
-			as_deactivate();
-		}
-		else {
-			as = proc->p_addrspace;
-			proc->p_addrspace = NULL;
-		}
-		as_destroy(as);
-	}
+	/* 	struct addrspace *as;
+     * 
+	 * 	if (proc == curproc) {
+	 * 		as = proc_setas(NULL);
+	 * 		as_deactivate();
+	 * 	}
+	 * 	else {
+	 * 		as = proc->p_addrspace;
+	 * 		proc->p_addrspace = NULL;
+	 * 	}
+	 * 	as_destroy(as);
+	 * } */
 
 	KASSERT(proc->p_numthreads == 0);
     spinlock_cleanup(&proc->p_lock);
 
+    /* filetable_destroy(proc->p_filetable); */
     sem_destroy(proc->p_sem);
 
     /* for (int i = cm_start_page; i < cm_numpages; i++) {
