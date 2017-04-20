@@ -84,7 +84,7 @@ find_page:
     }
     current_index = cm_start_page;
     if (looped) {
-        panic("infinite loop\n");
+        return 0;
     }
     looped = true;
     goto find_page;
@@ -104,6 +104,9 @@ coremap_alloc_npages(unsigned n)
         if (coremap[i]->cme_is_allocated) {
             pages_found = 1;
             start = coremap_nextfree(i);
+            if (start == 0) {
+                return 0;
+            }
             i = start;
         } else {
             pages_found++;
@@ -125,6 +128,9 @@ coremap_alloc_npages(unsigned n)
 
     if (cm_first_free_page == start) {
         cm_first_free_page = coremap_nextfree(start);
+        if (cm_first_free_page == 0) {
+            cm_first_free_page = cm_start_page;
+        }
     }
 
     return coremap[start]->cme_page->vp_paddr;

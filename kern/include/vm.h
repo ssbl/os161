@@ -72,5 +72,6 @@ unsigned int coremap_used_bytes(void);
 /* TLB shootdown handling called from interprocessor_interrupt */
 void vm_tlbshootdown(const struct tlbshootdown *);
 
+void vm_cleartlb(void);
 
 #endif /* _VM_H_ */

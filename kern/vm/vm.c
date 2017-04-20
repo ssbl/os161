@@ -63,6 +63,10 @@ vm_fault(int faulttype, vaddr_t faultaddress)
         spinlock_release(&coremap_lock);
 
         as->as_stack[nullpage] = kmalloc(sizeof(struct lpage));
+        if (as->as_stack[nullpage] == NULL) {
+            return ENOMEM;
+        }
+
         as->as_stack[nullpage]->lp_paddr = paddr;
         as->as_stack[nullpage]->lp_startaddr = faultaddress;
         bzero((void *)PADDR_TO_KVADDR(paddr), PAGE_SIZE);
@@ -93,6 +97,9 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
         if (as->as_heap[nullpage] == NULL) {
             as->as_heap[nullpage] = kmalloc(sizeof(struct lpage));
+            if (as->as_heap[nullpage] == NULL){
+                return ENOMEM;
+            }
         }
 
         as->as_heap[nullpage]->lp_freed = 0;
@@ -241,4 +248,15 @@ vm_tlbshootdown(const struct tlbshootdown *tlbshootdown)
 {
     (void)tlbshootdown;
     panic("tried tlbshootdown\n");
+}
+
+void
+vm_cleartlb(void) {
+    int i, spl = splhigh();
+
+    for (i = 0; i < NUM_TLB; i++) {
+        tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
+    }
+
+    splx(spl);
 }

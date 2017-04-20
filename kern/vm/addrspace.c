@@ -231,6 +231,9 @@ as_prepare_load(struct addrspace *as)
     for (unsigned i = 0; i < as->as_numregions; i++) {
         numpages = as->as_regions[i]->r_numpages;
         as->as_regions[i]->r_pages = kmalloc(numpages * sizeof(struct vpage *));
+        if (as->as_regions[i] == NULL) {
+            return ENOMEM;
+        }
 
         for (unsigned j = 0; j < numpages; j++) {
             as->as_regions[i]->r_pages[j] = NULL;
@@ -330,11 +333,14 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 
     for (i = 0; i < old->as_numregions; i++) {
         struct region *rgn = old->as_regions[i];
-        as_define_region(newas, rgn->r_startaddr,
-                         rgn->r_numpages * PAGE_SIZE,
-                         rgn->r_permissions & 4,
-                         rgn->r_permissions & 2,
-                         rgn->r_permissions & 1);
+        result = as_define_region(newas, rgn->r_startaddr,
+                                  rgn->r_numpages * PAGE_SIZE,
+                                  rgn->r_permissions & 4,
+                                  rgn->r_permissions & 2,
+                                  rgn->r_permissions & 1);
+        if (result) {
+            return result;
+        }
     }
 
     result = as_prepare_load(newas);
@@ -349,7 +355,6 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 
     KASSERT(old->as_numregions == newas->as_numregions);
 
-    spinlock_acquire(&coremap_lock);
     for (i = 0; i < newas->as_numregions; i++) {
         struct region *region_old = old->as_regions[i];
         struct region *region_new = newas->as_regions[i];
@@ -360,7 +365,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 
         for (j = 0; j < region_old->r_numpages; j++) {
             if (region_old->r_pages[j] != NULL) {
-                /* spinlock_acquire(&coremap_lock); */
+                spinlock_acquire(&coremap_lock);
                 paddr = coremap_alloc_page();
                 if (paddr == 0) {
                     /* as_destroy(newas); */
@@ -368,7 +373,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
                     return ENOMEM;
                 }
                 region_new->r_pages[j] = coremap[paddr / PAGE_SIZE]->cme_page;
-                /* spinlock_release(&coremap_lock); */
+                spinlock_release(&coremap_lock);
 
                 memmove((void *)PADDR_TO_KVADDR(paddr),
                         (const void *)
@@ -377,18 +382,20 @@ as_copy(struct addrspace *old, struct addrspace **ret)
             }
         }
     }
-    spinlock_release(&coremap_lock);
 
     for (i = 0; i < LPAGES; i++) {
         if (old->as_stack[i] != NULL) {
             newas->as_stack[i] = kmalloc(sizeof(struct lpage));
+            if (newas->as_stack[i] == NULL) {
+                return ENOMEM;
+            }
             newas->as_stack[i]->lp_startaddr = old->as_stack[i]->lp_startaddr;
 
             spinlock_acquire(&coremap_lock);
             newas->as_stack[i]->lp_paddr = coremap_alloc_page();
             spinlock_release(&coremap_lock);
             if (newas->as_stack[i]->lp_paddr == 0) {
-                /* as_destroy(newas); */
+                as_destroy(newas);
                 /* spinlock_release(&coremap_lock); */
                 return ENOMEM;
             }
@@ -402,6 +409,9 @@ as_copy(struct addrspace *old, struct addrspace **ret)
     for (i = 0; i < HEAPPAGES; i++) {
         if (old->as_heap[i] != NULL && !old->as_heap[i]->lp_freed) {
             newas->as_heap[i] = kmalloc(sizeof(struct lpage));
+            if (newas->as_heap[i] == NULL) {
+                return ENOMEM;
+            }
             newas->as_heap[i]->lp_startaddr = old->as_heap[i]->lp_startaddr;
             newas->as_heap[i]->lp_freed = 0;
 
