@@ -347,6 +347,7 @@ enter_forked_process(void *tf, long unsigned int stackptr)
     bzero(&newtf, sizeof(newtf));
     newtf = *tfptr;
     newtf.tf_epc = tfptr->tf_epc + 4;
+	newtf.tf_a3=0;
     kfree(tf);
     /* go to usermode */
     mips_usermode(&newtf);
