@@ -233,10 +233,26 @@ kproc_destroy(void)
 void
 proc_bootstrap(void)
 {
-	kproc = proc_create("[kernel]");
+	kproc = kmalloc(sizeof(struct proc));
 	if (kproc == NULL) {
-		panic("proc_create for kproc failed\n");
+        panic("proc_bootstrap");
 	}
+
+	kproc->p_name = kstrdup("[kernel]");
+	if (kproc->p_name == NULL) {
+		kfree(kproc);
+        panic("proc_bootstrap");
+	}
+
+	kproc->p_numthreads = 0;
+	spinlock_init(&kproc->p_lock);
+
+	/* VM fields */
+	kproc->p_addrspace = NULL;
+
+	/* VFS fields */
+	kproc->p_cwd = NULL;
+
     kproc->p_pid = 1;
 }
 
