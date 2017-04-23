@@ -149,8 +149,6 @@ common_prog(int nargs, char **args)
 	// Wait for all threads to finish cleanup, otherwise khu be a bit behind,
 	// especially once swapping is enabled.
 	thread_wait_for_count(tc);
-    proc_destroy(proc);
-    proctable_destroy(proctable);
 
 	return 0;
 }

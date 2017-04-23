@@ -25,7 +25,8 @@ proctable_get(struct proctable *pt, int pid)
         return NULL;
     }
 
-    return procarray_get(pt->pt_procs, pid); 
+    /* return procarray_get(pt->pt_procs, pid);  */
+    return pt->pt_procs[pid];
 }
 
 int
@@ -34,21 +35,22 @@ proctable_set(struct proctable *pt, int pid, struct proc *proc)
     KASSERT(pt != NULL);
     KASSERT(proc != NULL);
 
-    int ret;
+    /* int ret; */
 
     if (pid < PID_MIN || pid >= PID_MAX) {
         return ESRCH;
     }
 
     if (pid > pt->pt_maxpid) {
-        ret = procarray_setsize(pt->pt_procs, pid + 1);
-        if (ret) {
-            return ret;
-        }
+        /* ret = procarray_setsize(pt->pt_procs, pid + 1);
+         * if (ret) {
+         *     return ret;
+         * } */
         pt->pt_maxpid = pid;
     }
 
-    procarray_set(pt->pt_procs, pid, proc);
+    /* procarray_set(pt->pt_procs, pid, proc); */
+    pt->pt_procs[pid] = proc;
     pt->pt_numprocs += 1;
 
     return 0;
@@ -66,7 +68,8 @@ proctable_remove(struct proctable *pt, int pid)
         return ESRCH;
     }
 
-    proc = procarray_get(pt->pt_procs, pid);
+    /* proc = procarray_get(pt->pt_procs, pid); */
+    proc = pt->pt_procs[pid];
     if (proc == NULL) {
         return 0;               /* already removed, do nothing */
     }
@@ -78,13 +81,14 @@ proctable_remove(struct proctable *pt, int pid)
     /* update maxpid, numprocs */
     if (pid == pt->pt_maxpid) {
         for (i = pid - 1; i >= 0; i--) {
-            proc = procarray_get(pt->pt_procs, i);
+            /* proc = procarray_get(pt->pt_procs, i); */
+            proc = pt->pt_procs[i];
             if (proc != NULL) {
                 pt->pt_maxpid = i;
                 break;
             }
         }
-        procarray_setsize(pt->pt_procs, pt->pt_maxpid+1);
+        /* procarray_setsize(pt->pt_procs, pt->pt_maxpid+1); */
     }
     pt->pt_numprocs -= 1;
 
@@ -99,13 +103,15 @@ proctable_add(struct proctable *pt, struct proc *proc)
     KASSERT(proc != NULL);
 
     pid_t i;
-	int ret, arr_size;
+	/* int ret, arr_size; */
     struct proc *p;
 
     for (i = 1; i < pt->pt_maxpid; i++) {
-        p = procarray_get(pt->pt_procs, i);
+        /* p = procarray_get(pt->pt_procs, i); */
+        p = pt->pt_procs[i];
         if (p == NULL) {
-            procarray_set(pt->pt_procs, i, proc);
+            /* procarray_set(pt->pt_procs, i, proc); */
+            pt->pt_procs[i] = proc;
             break;
         }
     }
@@ -116,12 +122,13 @@ proctable_add(struct proctable *pt, struct proc *proc)
         }
 
         i += 1;                 /* otherwise, add it to the end */
-        arr_size = pt->pt_maxpid + 1;
-        ret = procarray_setsize(pt->pt_procs, arr_size + 1);
-        if (ret) {
-            return ENOMEM;
-        }
-        procarray_set(pt->pt_procs, i, proc);
+        /* arr_size = pt->pt_maxpid + 1;
+         * ret = procarray_setsize(pt->pt_procs, arr_size + 1);
+         * if (ret) {
+         *     return ENOMEM;
+         * } */
+        /* procarray_set(pt->pt_procs, i, proc); */
+        pt->pt_procs[i] = proc;
     }
 
     pt->pt_maxpid = i > pt->pt_maxpid ? i : pt->pt_maxpid;
@@ -136,13 +143,13 @@ proctable_destroy(struct proctable *pt)
 {
     KASSERT(pt != NULL);
 
-    /* for (int i = 0; i < pt->pt_maxpid; i++) {
-     *     procarray_remove(pt->pt_procs, i);
-     * } */
+    for (int i = 0; i < pt->pt_maxpid; i++) {
+        proctable_remove(pt, i);
+    }
 
-    procarray_setsize(pt->pt_procs, 0);
-    procarray_destroy(pt->pt_procs);
-
+    /* procarray_setsize(pt->pt_procs, 0);
+     * procarray_destroy(pt->pt_procs); */
+    kfree(pt->pt_procs);
     kfree(pt);
     pt = NULL;
 }

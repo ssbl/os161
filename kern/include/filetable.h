@@ -19,9 +19,9 @@ struct file_entry {
     int f_flags;
     int f_refcount;
 };
-DECLARRAY(file_entry, FILETABLE_INLINE);
+/* DECLARRAY(file_entry, FILETABLE_INLINE); */
 
-DEFARRAY(file_entry, FILETABLE_INLINE);
+/* DEFARRAY(file_entry, FILETABLE_INLINE); */
 
 /*
  * A wrapper structure for file_entryarray.
@@ -30,7 +30,8 @@ DEFARRAY(file_entry, FILETABLE_INLINE);
  * Should make the filesystem calls much simpler.
  */
 struct filetable {
-    struct file_entryarray *ft_fdarray; /* array of file handles */
+    /* struct file_entryarray *ft_fdarray; /\* array of file handles *\/ */
+    struct file_entry **ft_fdarray;
     int ft_maxfd;               /* highest open (non-null) fd */
     int ft_openfds;             /* number of open fds */
     uint64_t *ft_bitset;

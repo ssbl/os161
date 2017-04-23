@@ -70,9 +70,9 @@ proc_create(const char *name)
 {
 	struct proc *proc;
 
-    if (kproc != NULL && proctable == NULL) {
-        proctable_create();
-    }
+    /* if (kproc != NULL && proctable == NULL) {
+     *     proctable_create();
+     * } */
 
 	proc = kmalloc(sizeof(*proc));
 	if (proc == NULL) {
@@ -150,7 +150,7 @@ proc_destroy(struct proc *proc)
 	}
 
 	/* VM fields */
-	/* if (proc->p_addrspace) { */
+	if (proc->p_addrspace) {
 		/*
 		 * If p is the current process, remove it safely from
 		 * p_addrspace before destroying it. This makes sure
@@ -184,23 +184,23 @@ proc_destroy(struct proc *proc)
 		 * incorrect to destroy the proc structure of some
 		 * random other process while it's still running...
 		 */
-	/* 	struct addrspace *as;
-     * 
-	 * 	if (proc == curproc) {
-	 * 		as = proc_setas(NULL);
-	 * 		as_deactivate();
-	 * 	}
-	 * 	else {
-	 * 		as = proc->p_addrspace;
-	 * 		proc->p_addrspace = NULL;
-	 * 	}
-	 * 	as_destroy(as);
-	 * } */
+		struct addrspace *as;
+    
+		if (proc == curproc) {
+			as = proc_setas(NULL);
+			as_deactivate();
+		}
+		else {
+			as = proc->p_addrspace;
+			proc->p_addrspace = NULL;
+		}
+		as_destroy(as);
+	}
 
 	KASSERT(proc->p_numthreads == 0);
     spinlock_cleanup(&proc->p_lock);
 
-    /* filetable_destroy(proc->p_filetable); */
+    filetable_destroy(proc->p_filetable);
     sem_destroy(proc->p_sem);
 
     /* for (int i = cm_start_page; i < cm_numpages; i++) {
@@ -213,7 +213,7 @@ proc_destroy(struct proc *proc)
      *     }
      * } */
 
-	/* kfree(proc->p_name); */
+	kfree(proc->p_name);
 	kfree(proc);
 }
 
@@ -233,34 +233,58 @@ kproc_destroy(void)
 void
 proc_bootstrap(void)
 {
-	kproc = proc_create("[kernel]");
+	kproc = kmalloc(sizeof(struct proc));
 	if (kproc == NULL) {
-		panic("proc_create for kproc failed\n");
+        panic("proc_bootstrap");
 	}
+	kproc->p_name = kstrdup("[kernel]");
+	if (kproc->p_name == NULL) {
+		kfree(kproc);
+        panic("proc_bootstrap");
+	}
+
+	kproc->p_numthreads = 0;
+	spinlock_init(&kproc->p_lock);
+
+	/* VM fields */
+	kproc->p_addrspace = NULL;
+
+	/* VFS fields */
+	kproc->p_cwd = NULL;
+
     kproc->p_pid = 1;
 }
 
 void
 proctable_create(void)
 {
-    int result;
+    /* int result; */
 
     proctable = kmalloc(sizeof(*proctable));
     if (proctable == NULL) {
         panic("could not initialize process table\n");
     }
 
-    proctable->pt_procs = procarray_create();
+    /* proctable->pt_procs = procarray_create();
+     * if (proctable->pt_procs == NULL) {
+     *     panic("could not initialize process table\n");
+     * } */
+
+    /* result = procarray_setsize(proctable->pt_procs, 2);
+     * if (result) {
+     *     panic("could not initialize process table\n");
+     * } */
+
+    /* procarray_set(proctable->pt_procs, 1, kproc); */
+    proctable->pt_procs = kmalloc(256 * sizeof(struct proc *));
     if (proctable->pt_procs == NULL) {
-        panic("could not initialize process table\n");
+        panic("proctable");
     }
 
-    result = procarray_setsize(proctable->pt_procs, 2);
-    if (result) {
-        panic("could not initialize process table\n");
+    for (int i = 0; i < 256; i++) {
+        proctable->pt_procs[i] = NULL;
     }
-
-    procarray_set(proctable->pt_procs, 1, kproc);
+    proctable->pt_procs[1] = kproc;
 
     proctable->pt_lock = lock_create("pt_lock");
     if (proctable->pt_lock == NULL) {
@@ -305,17 +329,7 @@ proc_create_runprogram(const char *name)
 	}
 	spinlock_release(&curproc->p_lock);
 
-    newproc->p_sem = sem_create("rp_sem", 0);
-    if (newproc->p_sem == NULL) {
-        panic("couldn't create semaphore for runprogram\n");
-    }
-
-    newproc->p_filetable = filetable_create();
-    if (newproc->p_filetable == NULL) {
-        panic("couldn't copy filetable for runprogram\n");
-    }
-
-    newproc->p_ppid = 2;
+    newproc->p_ppid = 1;
     lock_acquire(proctable->pt_lock);
     if (proctable_add(proctable, newproc) != 0) {
         panic("couldn't create process for runprogram\n");

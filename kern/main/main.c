@@ -44,6 +44,7 @@
 #include <synch.h>
 #include <vm.h>
 #include <coremap.h>
+#include <proctable.h>
 #include <mainbus.h>
 #include <vfs.h>
 #include <device.h>
@@ -137,7 +138,7 @@ boot(void)
 	vfs_setbootfs("emu0");
 
 	kheap_nextgeneration();
-
+    proctable_create();
 	/*
 	 * Make sure various things aren't screwed up.
 	 */

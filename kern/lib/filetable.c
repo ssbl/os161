@@ -56,13 +56,14 @@ file_entry_destroy(struct file_entry *fentry)
     lock_acquire(fentry->f_lk);
     fentry->f_refcount--;
     if (fentry->f_refcount == 0) {
-        /* vfs_close(fentry->f_node); */
-        /* kprintf("killing %s..", fentry->f_name); */
+        vfs_close(fentry->f_node);
+        kprintf("killing %s..", fentry->f_name);
         kfree(fentry->f_name);
         lock_release(fentry->f_lk);
         lock_destroy(fentry->f_lk);
         kfree(fentry);
         fentry = NULL;
+        kprintf("\n");
     } else {
         lock_release(fentry->f_lk);
         /* fentry = NULL; */
@@ -132,7 +133,7 @@ filetable_checkfd(struct filetable *ft, int fd)
 struct filetable *
 filetable_create(void)
 {
-    int ret;
+    /* int ret; */
     struct filetable *ft = NULL;
     struct file_entry *stdin, *stdout, *stderr;
 
@@ -141,11 +142,20 @@ filetable_create(void)
         return NULL;
     }
 
-    ft->ft_fdarray = file_entryarray_create();
+    ft->ft_fdarray = kmalloc(128 * sizeof(struct file_entry *));
     if (ft->ft_fdarray == NULL) {
         kfree(ft);
         return NULL;
     }
+
+    for (int i = 0; i < 128; i++) {
+        ft->ft_fdarray[i] = NULL;
+    }
+    /* ft->ft_fdarray = file_entryarray_create();
+     * if (ft->ft_fdarray == NULL) {
+     *     kfree(ft);
+     *     return NULL;
+     * } */
 
     if (kproc == NULL) {
         ft->ft_maxfd = -1;
@@ -163,21 +173,24 @@ filetable_create(void)
         return NULL;
     }
 
-    ret = file_entryarray_setsize(ft->ft_fdarray, 3);
-    if (ret) {
-        file_entryarray_destroy(ft->ft_fdarray);
-        kfree(ft->ft_bitset);
-        kfree(ft);
-        return NULL;
-    }
+    /* ret = file_entryarray_setsize(ft->ft_fdarray, 3);
+     * if (ret) {
+     *     file_entryarray_destroy(ft->ft_fdarray);
+     *     kfree(ft->ft_bitset);
+     *     kfree(ft);
+     *     return NULL;
+     * } */
 
     stdin = file_entry_create("<stdin>", O_RDONLY, console_vnode);
     stdout = file_entry_create("<stdout>", O_WRONLY, console_vnode);
     stderr = file_entry_create("<stderr>", O_WRONLY, console_vnode);
 
-    file_entryarray_set(ft->ft_fdarray, 0, stdin);
-    file_entryarray_set(ft->ft_fdarray, 1, stdout);
-    file_entryarray_set(ft->ft_fdarray, 2, stderr);
+    ft->ft_fdarray[0]= stdin;
+    ft->ft_fdarray[1]= stdout;
+    ft->ft_fdarray[2]= stderr;
+    /* file_entryarray_set(ft->ft_fdarray, 0, stdin);
+     * file_entryarray_set(ft->ft_fdarray, 1, stdout);
+     * file_entryarray_set(ft->ft_fdarray, 2, stderr); */
 
     ft->ft_maxfd = 2;
     ft->ft_openfds = 3;
@@ -195,7 +208,8 @@ filetable_get(struct filetable *ft, int fd)
         return NULL;
     }
 
-    return file_entryarray_get(ft->ft_fdarray, fd);
+    /* return file_entryarray_get(ft->ft_fdarray, fd); */
+    return ft->ft_fdarray[fd];
 }
 
 int
@@ -203,22 +217,23 @@ filetable_set(struct filetable *ft, int fd, struct file_entry *fentry)
 {
     KASSERT(ft != NULL);
 
-    int ret;
+    /* int ret; */
 
     if (fd < 0 || fd >= OPEN_MAX) {
         return EBADF;
     }
 
     if (fd > ft->ft_maxfd) {
-        /* kprintf("got %d, maxfd is %d\n", fd, ft->ft_maxfd); */
-        ret = file_entryarray_setsize(ft->ft_fdarray, fd + 1);
-        if (ret) {
-            return ret;
-        }
+        /* /\* kprintf("got %d, maxfd is %d\n", fd, ft->ft_maxfd); *\/
+         * ret = file_entryarray_setsize(ft->ft_fdarray, fd + 1);
+         * if (ret) {
+         *     return ret;
+         * } */
         ft->ft_maxfd = fd;
     }
 
-    file_entryarray_set(ft->ft_fdarray, fd, fentry);
+    /* file_entryarray_set(ft->ft_fdarray, fd, fentry); */
+    ft->ft_fdarray[fd] = fentry;
 
     if (fentry != NULL) {
         fentry->f_refcount++;
@@ -234,14 +249,16 @@ filetable_remove(struct filetable *ft, int fd)
 {
     KASSERT(ft != NULL);
 
-    int i, ret;
+    /* int i, ret; */
+    int i;
     struct file_entry *fentry = NULL;
 
     if (filetable_checkfd(ft, fd) != 0) {
         return EBADF;
     }
 
-    fentry = file_entryarray_get(ft->ft_fdarray, fd);
+    /* fentry = file_entryarray_get(ft->ft_fdarray, fd); */
+    fentry = ft->ft_fdarray[fd];
     if (!bitset_isset(ft, fd)) {
         return 0;               /* already removed, do nothing */
     }
@@ -254,16 +271,16 @@ filetable_remove(struct filetable *ft, int fd)
     /* update maxfd, openfds */
     if (fd == ft->ft_maxfd) {
         for (i = fd - 1; i >= 0; i--) {
-            fentry = file_entryarray_get(ft->ft_fdarray, i);
+            /* fentry = file_entryarray_get(ft->ft_fdarray, i); */
             if (bitset_isset(ft, fd)) {
                 break;
             }
         }
         ft->ft_maxfd = i;
-        ret = file_entryarray_setsize(ft->ft_fdarray, i + 1);
-        if (ret) {
-            return ENOSPC;
-        }
+        /* ret = file_entryarray_setsize(ft->ft_fdarray, i + 1);
+         * if (ret) {
+         *     return ENOSPC;
+         * } */
     }
     ft->ft_openfds -= 1;
     bitset_clear(ft, fd);
@@ -282,21 +299,24 @@ filetable_add(struct filetable *ft, struct file_entry *fentry, int *retval)
     KASSERT(ft != NULL);
     KASSERT(fentry != NULL);
 
-    int i, ret, arr_size;
+    /* int i, ret, arr_size; */
+    int i;
     /* struct file_entry *f; */
 
     if (ft->ft_maxfd == -1) {
-        ret = filetable_set(ft, 0, fentry);
-        if (ret != 0) {
-            *retval = ret;
-            return -1;
-        }
+        /* ret = filetable_set(ft, 0, fentry);
+         * if (ret != 0) {
+         *     *retval = ret;
+         *     return -1;
+         * } */
+        filetable_set(ft, 0, fentry);
     }
 
     for (i = 0; i < ft->ft_maxfd; i++) {
         /* f = file_entryarray_get(ft->ft_fdarray, i); */
         if (!bitset_isset(ft, i)) {
-            file_entryarray_set(ft->ft_fdarray, i, fentry);
+            /* file_entryarray_set(ft->ft_fdarray, i, fentry); */
+            ft->ft_fdarray[i] = fentry;
             break;
         }
     }
@@ -308,13 +328,14 @@ filetable_add(struct filetable *ft, struct file_entry *fentry, int *retval)
         }
 
         i += 1;                 /* otherwise, add it to the end */
-        arr_size = ft->ft_maxfd + 1;
-        ret = file_entryarray_setsize(ft->ft_fdarray, arr_size + 1);
-        if (ret) {
-            *retval = ENOSPC;
-            return -1;
-        }
-        file_entryarray_set(ft->ft_fdarray, i, fentry);
+        /* arr_size = ft->ft_maxfd + 1; */
+        /* ret = file_entryarray_setsize(ft->ft_fdarray, arr_size + 1);
+         * if (ret) {
+         *     *retval = ENOSPC;
+         *     return -1;
+         * } */
+        /* file_entryarray_set(ft->ft_fdarray, i, fentry); */
+        ft->ft_fdarray[i] = fentry;
     }
 
     fentry->f_refcount++;
@@ -346,11 +367,21 @@ filetable_copy(struct filetable *src)
     dest->ft_maxfd = -1;
     dest->ft_openfds = 0;
 
-    dest->ft_fdarray = file_entryarray_create();
+    /* dest->ft_fdarray = file_entryarray_create();
+     * if (dest->ft_fdarray == NULL) {
+     *     kfree(dest->ft_bitset);
+     *     kfree(dest);
+     *     return NULL;
+     * } */
+    dest->ft_fdarray = kmalloc(128 * sizeof(struct fentry *));
     if (dest->ft_fdarray == NULL) {
         kfree(dest->ft_bitset);
         kfree(dest);
         return NULL;
+    }
+
+    for (int i = 0; i < 128; i++) {
+        dest->ft_fdarray[i] = NULL;
     }
 
     for (i = 0; i <= src->ft_maxfd; i++) {
@@ -383,15 +414,16 @@ filetable_destroy(struct filetable *ft)
     for (i = 0; i <= ft->ft_maxfd; i++) {
         /* fentry = filetable_get(ft, i); */
         if (bitset_isset(ft, i)) {
-            /* kprintf("removing %d...", i); */
+            kprintf("removing %d...", i);
             filetable_remove(ft, i);
             /* kprintf("done\n"); */
         }
     }
 
     /* kfree(ft->ft_fdarray); */
-    file_entryarray_setsize(ft->ft_fdarray, 0);
-    file_entryarray_destroy(ft->ft_fdarray);
+    /* file_entryarray_setsize(ft->ft_fdarray, 0);
+     * file_entryarray_destroy(ft->ft_fdarray); */
+    kfree(ft->ft_fdarray);
     kfree(ft->ft_bitset);
     kfree(ft);
     ft = NULL;

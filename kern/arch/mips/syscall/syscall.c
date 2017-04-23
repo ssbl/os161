@@ -279,14 +279,14 @@ syscall(struct trapframe *tf)
         }
         break;
 
-        case SYS_sbrk:
-        err = sys_sbrk(tf->tf_a0, &retval);
-        if (err != -1) {
-            err = 0;
-        } else {
-            err = retval;
-        }
-        break;
+        /* case SYS_sbrk:
+         * err = sys_sbrk(tf->tf_a0, &retval);
+         * if (err != -1) {
+         *     err = 0;
+         * } else {
+         *     err = retval;
+         * }
+         * break; */
 
         case SYS__exit:
             err = tf->tf_a0;
@@ -348,7 +348,8 @@ enter_forked_process(void *tf, long unsigned int stackptr)
     newtf = *tfptr;
     newtf.tf_epc = tfptr->tf_epc + 4;
 	newtf.tf_a3=0;
-    kfree(tf);
+
+    kfree(tfptr);
     /* go to usermode */
     mips_usermode(&newtf);
 }
