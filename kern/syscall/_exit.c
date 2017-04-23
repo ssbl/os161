@@ -33,7 +33,9 @@ sys__exit(int exitcode)
     proc->p_exitcode = exitcode;
 
     as = proc_getas();
-    as_destroy(as);
+    if (as != NULL) {
+        as_destroy(as);
+    }
 
     /* filetable_destroy(proc->p_filetable);
      * kfree(proc->p_name); */
