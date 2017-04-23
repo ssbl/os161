@@ -56,8 +56,8 @@ file_entry_destroy(struct file_entry *fentry)
     lock_acquire(fentry->f_lk);
     fentry->f_refcount--;
     if (fentry->f_refcount == 0) {
-        /* vfs_close(fentry->f_node); */
         /* kprintf("killing %s..", fentry->f_name); */
+        vfs_close(fentry->f_node);
         kfree(fentry->f_name);
         lock_release(fentry->f_lk);
         lock_destroy(fentry->f_lk);
@@ -145,12 +145,6 @@ filetable_create(void)
     if (ft->ft_fdarray == NULL) {
         kfree(ft);
         return NULL;
-    }
-
-    if (kproc == NULL) {
-        ft->ft_maxfd = -1;
-        ft->ft_openfds = 0;
-        return ft;
     }
 
     if (console_vnode == NULL) {
@@ -246,10 +240,7 @@ filetable_remove(struct filetable *ft, int fd)
         return 0;               /* already removed, do nothing */
     }
 
-    /* if (fentry->f_refcount > 0) { /\* HACK *\/
-     *     remove this entry */
     file_entry_destroy(fentry);
-    /* } */
 
     /* update maxfd, openfds */
     if (fd == ft->ft_maxfd) {

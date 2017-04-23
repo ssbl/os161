@@ -40,6 +40,7 @@
 #include <clock.h>
 #include <thread.h>
 #include <proc.h>
+#include <proctable.h>
 #include <current.h>
 #include <synch.h>
 #include <vm.h>
@@ -137,6 +138,7 @@ boot(void)
 	vfs_setbootfs("emu0");
 
 	kheap_nextgeneration();
+    proctable_create();
 
 	/*
 	 * Make sure various things aren't screwed up.

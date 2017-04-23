@@ -70,10 +70,6 @@ proc_create(const char *name)
 {
 	struct proc *proc;
 
-    if (kproc != NULL && proctable == NULL) {
-        proctable_create();
-    }
-
 	proc = kmalloc(sizeof(*proc));
 	if (proc == NULL) {
 		return NULL;
@@ -200,7 +196,7 @@ proc_destroy(struct proc *proc)
 	KASSERT(proc->p_numthreads == 0);
     spinlock_cleanup(&proc->p_lock);
 
-    /* filetable_destroy(proc->p_filetable); */
+    filetable_destroy(proc->p_filetable);
     sem_destroy(proc->p_sem);
 
     /* for (int i = cm_start_page; i < cm_numpages; i++) {
@@ -213,18 +209,8 @@ proc_destroy(struct proc *proc)
      *     }
      * } */
 
-	/* kfree(proc->p_name); */
+	kfree(proc->p_name);
 	kfree(proc);
-}
-
-void
-kproc_destroy(void)
-{
-    spinlock_cleanup(&kproc->p_lock);
-    filetable_destroy(kproc->p_filetable);
-    sem_destroy(kproc->p_sem);
-    kfree(kproc->p_name);
-    kfree(kproc);
 }
 
 /*
@@ -321,17 +307,7 @@ proc_create_runprogram(const char *name)
 	}
 	spinlock_release(&curproc->p_lock);
 
-    newproc->p_sem = sem_create("rp_sem", 0);
-    if (newproc->p_sem == NULL) {
-        panic("couldn't create semaphore for runprogram\n");
-    }
-
-    newproc->p_filetable = filetable_create();
-    if (newproc->p_filetable == NULL) {
-        panic("couldn't copy filetable for runprogram\n");
-    }
-
-    newproc->p_ppid = 2;
+    newproc->p_ppid = 1;
     lock_acquire(proctable->pt_lock);
     if (proctable_add(proctable, newproc) != 0) {
         panic("couldn't create process for runprogram\n");
