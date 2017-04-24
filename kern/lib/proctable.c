@@ -142,7 +142,7 @@ proctable_destroy(struct proctable *pt)
 
     procarray_setsize(pt->pt_procs, 0);
     procarray_destroy(pt->pt_procs);
-
+    lock_destroy(pt->pt_lock);
     kfree(pt);
     pt = NULL;
 }

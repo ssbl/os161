@@ -93,6 +93,7 @@ as_destroy(struct addrspace *as)
                 coremap_free_kpages(r->r_pages[j]->vp_paddr);
             }
         }
+        kfree(as->as_regions[i]->r_pages);
         kfree(as->as_regions[i]);
     }
 
