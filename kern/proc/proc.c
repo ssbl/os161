@@ -89,15 +89,6 @@ proc_create(const char *name)
 	/* VFS fields */
 	proc->p_cwd = NULL;
 
-	/* filetable */
-	proc->p_filetable = filetable_create();
-	if (proc->p_filetable == NULL) {
-		kfree(proc->p_name);
-		spinlock_cleanup(&proc->p_lock);
-		kfree(proc);
-		return NULL;
-	}
-
     proc->p_sem = sem_create("p_sem", 0);
     if (proc->p_sem == NULL) {
         kfree(proc->p_name);
@@ -106,6 +97,7 @@ proc_create(const char *name)
         return NULL;
     }        
 
+    proc->p_filetable = NULL;
     proc->p_exitcode = -1;
     proc->p_exitstatus = -1;
     proc->p_parent = NULL;
@@ -196,7 +188,10 @@ proc_destroy(struct proc *proc)
 	KASSERT(proc->p_numthreads == 0);
     spinlock_cleanup(&proc->p_lock);
 
-    filetable_destroy(proc->p_filetable);
+    if (proc->p_filetable != NULL) {
+        filetable_destroy(proc->p_filetable);
+    }
+
     sem_destroy(proc->p_sem);
 
     /* for (int i = cm_start_page; i < cm_numpages; i++) {
@@ -245,24 +240,26 @@ proc_bootstrap(void)
 void
 proctable_create(void)
 {
-    int result;
+    /* int result; */
 
     proctable = kmalloc(sizeof(*proctable));
     if (proctable == NULL) {
         panic("could not initialize process table\n");
     }
 
-    proctable->pt_procs = procarray_create();
-    if (proctable->pt_procs == NULL) {
-        panic("could not initialize process table\n");
-    }
-
-    result = procarray_setsize(proctable->pt_procs, 2);
-    if (result) {
-        panic("could not initialize process table\n");
-    }
-
-    procarray_set(proctable->pt_procs, 1, kproc);
+    proctable->pt_procs = kmalloc(256 * sizeof(struct proc *));
+    /* proctable->pt_procs = procarray_create();
+     * if (proctable->pt_procs == NULL) {
+     *     panic("could not initialize process table\n");
+     * }
+     * 
+     * result = procarray_setsize(proctable->pt_procs, 2);
+     * if (result) {
+     *     panic("could not initialize process table\n");
+     * }
+     * 
+     * procarray_set(proctable->pt_procs, 1, kproc); */
+    proctable->pt_procs[1] = kproc;
 
     proctable->pt_lock = lock_create("pt_lock");
     if (proctable->pt_lock == NULL) {
@@ -306,6 +303,16 @@ proc_create_runprogram(const char *name)
 		newproc->p_cwd = curproc->p_cwd;
 	}
 	spinlock_release(&curproc->p_lock);
+
+	/* filetable */
+	newproc->p_filetable = filetable_create();
+	if (newproc->p_filetable == NULL) {
+        panic("coudln't create filetable for runprogram");
+		/* kfree(proc->p_name);
+		 * spinlock_cleanup(&proc->p_lock);
+		 * kfree(proc);
+		 * return NULL; */
+	}
 
     newproc->p_ppid = 1;
     lock_acquire(proctable->pt_lock);

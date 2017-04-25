@@ -83,7 +83,7 @@ sys_fork(struct trapframe *tf, int *retval)
         *retval = ENOMEM;
         return -1;
     }
-    filetable_destroy(newproc->p_filetable);
+    /* filetable_destroy(newproc->p_filetable); */
     newproc->p_filetable = newft;
 
     result = thread_fork(newproc->p_name, newproc,

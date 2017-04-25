@@ -90,7 +90,9 @@ as_destroy(struct addrspace *as)
         struct region *r = as->as_regions[i];
         for (unsigned j = 0; j < r->r_numpages; j++) {
             if (r->r_pages[j] != NULL) {
+                spinlock_acquire(&coremap_lock);
                 coremap_free_kpages(r->r_pages[j]->vp_paddr);
+                spinlock_release(&coremap_lock);
             }
         }
         kfree(as->as_regions[i]->r_pages);
@@ -99,13 +101,17 @@ as_destroy(struct addrspace *as)
 
     for (i = 0; i < LPAGES; i++) {
         if (as->as_stack[i] != NULL) {
+            spinlock_acquire(&coremap_lock);
             coremap_free_kpages(as->as_stack[i]->lp_paddr);
+            spinlock_release(&coremap_lock);
             kfree(as->as_stack[i]);
         }
     }
     for (i = 0; i < HEAPPAGES; i++) {
         if (as->as_heap[i] != NULL) {
+            spinlock_acquire(&coremap_lock);
             coremap_free_kpages(as->as_heap[i]->lp_paddr);
+            spinlock_release(&coremap_lock);
             kfree(as->as_heap[i]);
         }
     }
