@@ -97,7 +97,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
         if (as->as_heap[nullpage] == NULL) {
             as->as_heap[nullpage] = kmalloc(sizeof(struct lpage));
-            if (as->as_heap[nullpage] == NULL){
+            if (as->as_heap[nullpage] == NULL) {
                 return ENOMEM;
             }
         }
@@ -106,11 +106,6 @@ vm_fault(int faulttype, vaddr_t faultaddress)
         as->as_heap[nullpage]->lp_paddr = paddr;
         as->as_heap[nullpage]->lp_startaddr = faultaddress;
         bzero((void *)PADDR_TO_KVADDR(paddr), PAGE_SIZE);
-        /* kprintf("vm_fault: creating entry %d: {%u,%u,%d}\n",
-         *         nullpage,
-         *         as->as_heap[nullpage]->lp_freed,
-         *         as->as_heap[nullpage]->lp_paddr,
-         *         as->as_heap[nullpage]->lp_startaddr); */
         goto skip_regions;
     }
 

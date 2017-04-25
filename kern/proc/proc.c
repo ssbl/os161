@@ -193,17 +193,6 @@ proc_destroy(struct proc *proc)
     }
 
     sem_destroy(proc->p_sem);
-
-    /* for (int i = cm_start_page; i < cm_numpages; i++) {
-     *     if (coremap[i]->cme_pid == proc->p_pid) {
-     *         KASSERT(coremap[i]->cme_is_allocated == 1);
-     *         kprintf("%d{a=%d,l=%d} owned by %d\n",
-     *                 i, coremap[i]->cme_is_last_page,
-     *                 coremap[i]->cme_is_allocated, coremap[i]->cme_pid);
-     *         free_kpages(PADDR_TO_KVADDR(coremap[i]->cme_page->vp_paddr));
-     *     }
-     * } */
-
 	kfree(proc->p_name);
 	kfree(proc);
 }

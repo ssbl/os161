@@ -48,33 +48,21 @@ sys_sbrk(intptr_t amount, int *retval)
 
     /* free pages */
     if (brk < as->as_heapbrk) {
-        /* kprintf("new brk = %u, old brk = %u\n", brk, as->as_heapbrk); */
-        spl = splhigh();
-        /* unsigned freed = 0, checked = 0; */
         for (i = 0; i < HEAPPAGES; i++) {
             if (as->as_heap[i] != NULL && as->as_heap[i]->lp_freed == 0) {
                 if (as->as_heap[i]->lp_startaddr >= brk &&
                     as->as_heap[i]->lp_startaddr < as->as_heapbrk) {
+
+                    spinlock_acquire(&coremap_lock);
                     coremap_free_kpages(as->as_heap[i]->lp_paddr);
+                    spinlock_release(&coremap_lock);
+
                     as->as_heap[i]->lp_freed = 1;
-                    /* freed++; */
-                    /* kprintf("freeing %d\n", i); */
-                } /* else */
-                    /* kprintf("heap entry %d: {%u,%u,%d}\n", i,
-                     *         as->as_heap[i]->lp_startaddr,
-                     *         as->as_heap[i]->lp_paddr,
-                     *         as->as_heap[i]->lp_freed); */
-            /* } else if (as->as_heap[i]) {
-             *     kprintf("invalid entry %d: %d\n", i, as->as_heap[i]->lp_freed); */
+                }
             }
         }
 
-        /* if (freed*PAGE_SIZE != as->as_heapbrk - brk) {
-         *     panic("sbrk assertion failed, amount = %ld, freed = %u, checked = %u, start = %u, diff = %u",
-         *           amount, freed, checked, as->as_heapstart,
-         *           as->as_heapbrk - as->as_heapstart);
-         * } */
-
+        spl = splhigh();
         for (i = 0; i < NUM_TLB; i++) {
             tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
         }
