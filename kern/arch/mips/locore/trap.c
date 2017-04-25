@@ -41,6 +41,7 @@
 #include <syscall.h>
 #include <spinlock.h>
 #include <proc.h>
+#include <addrspace.h>
 #include <kern/wait.h>
 
 /* in exception-*.S */
@@ -79,6 +80,7 @@ kill_curthread(vaddr_t epc, unsigned code, vaddr_t vaddr)
     spinlock_acquire(&curproc->p_lock);
     struct proc *proc = curproc;
     struct thread *cur = curthread;
+    struct addrspace *as = curproc->p_addrspace;
     spinlock_release(&curproc->p_lock);
 
     proc->p_exitcode = code;
@@ -125,13 +127,18 @@ kill_curthread(vaddr_t epc, unsigned code, vaddr_t vaddr)
 	/*
 	 * You will probably want to change this.
 	 */
-    
+
 	kprintf("Fatal user mode trap %u sig %d (%s, epc 0x%x, vaddr 0x%x)\n",
 		code, sig, trapcodenames[code], epc, vaddr);
 
     if (proc->p_numthreads != 0) {
         proc_remthread(cur);
     }
+
+    if (as != NULL) {
+        as_destroy(as);
+    }
+
     V(proc->p_sem);
     thread_exit();
 	/* panic("I don't know how to handle this\n"); */
