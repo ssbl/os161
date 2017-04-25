@@ -62,6 +62,10 @@ vm_fault(int faulttype, vaddr_t faultaddress)
         paddr = coremap_alloc_page();
         spinlock_release(&coremap_lock);
 
+        if (paddr == 0) {
+            return ENOMEM;
+        }
+
         as->as_stack[nullpage] = kmalloc(sizeof(struct lpage));
         if (as->as_stack[nullpage] == NULL) {
             return ENOMEM;
@@ -93,7 +97,9 @@ vm_fault(int faulttype, vaddr_t faultaddress)
         paddr = coremap_alloc_page();
         spinlock_release(&coremap_lock);
 
-        KASSERT(paddr != 0);
+        if (paddr == 0) {
+            return ENOMEM;
+        }
 
         if (as->as_heap[nullpage] == NULL) {
             as->as_heap[nullpage] = kmalloc(sizeof(struct lpage));

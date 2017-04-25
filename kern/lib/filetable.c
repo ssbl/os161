@@ -316,7 +316,7 @@ filetable_copy(struct filetable *src)
 {
     KASSERT(src != NULL);
 
-    int i;
+    int i, result;
     struct filetable *dest = NULL;
     struct file_entry *fentry = NULL;
 
@@ -343,7 +343,14 @@ filetable_copy(struct filetable *src)
     for (i = 0; i <= src->ft_maxfd; i++) {
         if (bitset_isset(src, i)) {
             fentry = filetable_get(src, i);
-            filetable_set(dest, i, fentry);
+            result = filetable_set(dest, i, fentry);
+            if (result) {
+                kfree(dest->ft_bitset);
+                file_entryarray_setsize(dest->ft_fdarray, 0);
+                file_entryarray_destroy(dest->ft_fdarray);
+                kfree(dest);
+                return NULL;
+            }
         }
     }
 

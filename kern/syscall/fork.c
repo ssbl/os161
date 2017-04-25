@@ -31,7 +31,9 @@ sys_fork(struct trapframe *tf, int *retval)
     lock_acquire(proctable->pt_lock);
     spinlock_acquire(&curproc->p_lock);
     proc = curproc;
-    VOP_INCREF(curproc->p_cwd);
+    if (curproc->p_cwd != NULL) {
+        VOP_INCREF(curproc->p_cwd);
+    }
     cwd = curproc->p_cwd;
     curas = proc->p_addrspace;
     ppid = curproc->p_pid;
