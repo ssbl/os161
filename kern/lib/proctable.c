@@ -7,6 +7,23 @@
 #include <proctable.h>
 #include <limits.h>
 
+
+/* Convenience functions */
+
+void
+pt_lock()
+{
+    KASSERT(proctable != NULL);
+    lock_acquire(proctable->pt_lock);
+}
+
+void
+pt_release()
+{
+    KASSERT(proctable != NULL);
+    lock_release(proctable->pt_lock);
+}
+
 int
 proctable_checkpid(pid_t pid)
 {
