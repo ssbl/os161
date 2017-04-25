@@ -305,7 +305,6 @@ filetable_add(struct filetable *ft, struct file_entry *fentry, int *retval)
         file_entryarray_set(ft->ft_fdarray, i, fentry);
     }
 
-    fentry->f_refcount++;
     ft->ft_maxfd = i > ft->ft_maxfd ? i : ft->ft_maxfd;
     ft->ft_openfds += 1;
     bitset_set(ft, i);

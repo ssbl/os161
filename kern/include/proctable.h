@@ -28,5 +28,7 @@ int proctable_remove(struct proctable *pt, pid_t pid);
 int proctable_add(struct proctable *pt, struct proc *proc);
 int proctable_checkpid(pid_t pid);
 void proctable_destroy(struct proctable *pt);
+void proctable_lock(void);
+void proctable_release(void);
 
 #endif  /* _FILETABLE_H_ */

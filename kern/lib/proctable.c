@@ -11,14 +11,14 @@
 /* Convenience functions */
 
 void
-pt_lock()
+proctable_lock()
 {
     KASSERT(proctable != NULL);
     lock_acquire(proctable->pt_lock);
 }
 
 void
-pt_release()
+proctable_release()
 {
     KASSERT(proctable != NULL);
     lock_release(proctable->pt_lock);
