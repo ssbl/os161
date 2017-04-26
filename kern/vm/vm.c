@@ -1,18 +1,45 @@
 #include <types.h>
 #include <lib.h>
 #include <spl.h>
+#include <kern/fcntl.h>
 #include <kern/errno.h>
+#include <kern/stat.h>
 #include <current.h>
+#include <vfs.h>
+#include <vnode.h>
 #include <proc.h>
 #include <vm.h>
 #include <mips/tlb.h>
 #include <addrspace.h>
 #include <coremap.h>
 
+unsigned swp_numslots;
+struct vnode *swp_disk;
+
 void
 vm_bootstrap(void)
 {
-    /* numpages = (int)coremap_alloc_npages(10); */
+
+}
+
+void
+vm_swap_bootstrap(void)
+{
+    int result;
+    struct stat statbuf;
+
+    result = vfs_open((char *)SWAP_FILE, O_RDWR, 0, &swp_disk);
+    if (result) {
+        panic("swap: Couldn't open swap file");
+    }
+
+    result = VOP_STAT(swp_disk, &statbuf);
+    if (result) {
+        panic("swap: Couldn't stat swap file");
+    }
+
+    swp_numslots = statbuf.st_size / PAGE_SIZE;
+    kprintf("Swap capacity: %u pages\n", swp_numslots);
 }
 
 int

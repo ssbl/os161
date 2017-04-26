@@ -52,8 +52,16 @@ struct vpage {
 };
 
 
-/* Initialization function */
+/* swap disk name */
+#define SWAP_FILE "lhd0raw:"
+/* number of slots in swap space */
+unsigned swp_numslots;
+/* vnode for the swap file */
+struct vnode *swp_disk;
+
+/* Initialization functions */
 void vm_bootstrap(void);
+void vm_swap_bootstrap(void);
 
 /* Fault handling function called by trap code */
 int vm_fault(int faulttype, vaddr_t faultaddress);
