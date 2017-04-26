@@ -91,8 +91,9 @@ as_destroy(struct addrspace *as)
         for (unsigned j = 0; j < r->r_numpages; j++) {
             if (r->r_pages[j] != NULL) {
                 spinlock_acquire(&coremap_lock);
-                coremap_free_kpages(r->r_pages[j]->vp_paddr);
+                coremap_free_kpages(r->r_pages[j]->lp_paddr);
                 spinlock_release(&coremap_lock);
+                kfree(r->r_pages[j]);
             }
         }
         kfree(as->as_regions[i]->r_pages);
@@ -239,7 +240,7 @@ as_prepare_load(struct addrspace *as)
      */
     for (unsigned i = 0; i < as->as_numregions; i++) {
         numpages = as->as_regions[i]->r_numpages;
-        as->as_regions[i]->r_pages = kmalloc(numpages * sizeof(struct vpage *));
+        as->as_regions[i]->r_pages = kmalloc(numpages * sizeof(struct lpage *));
         if (as->as_regions[i] == NULL) {
             return ENOMEM;
         }
@@ -377,6 +378,11 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 
         for (j = 0; j < region_old->r_numpages; j++) {
             if (region_old->r_pages[j] != NULL) {
+                region_new->r_pages[j] = kmalloc(sizeof(struct lpage));
+                if (region_new->r_pages[j] == NULL) {
+                    return ENOMEM;
+                }
+
                 spinlock_acquire(&coremap_lock);
                 paddr = coremap_alloc_page();
                 if (paddr == 0) {
@@ -384,12 +390,14 @@ as_copy(struct addrspace *old, struct addrspace **ret)
                     /* as_destroy(newas); */
                     return ENOMEM;
                 }
-                region_new->r_pages[j] = coremap[paddr / PAGE_SIZE]->cme_page;
                 spinlock_release(&coremap_lock);
 
+                region_new->r_pages[j]->lp_paddr = paddr;
+                region_new->r_pages[j]->lp_startaddr =
+                    region_old->r_pages[j]->lp_startaddr;
                 memmove((void *)PADDR_TO_KVADDR(paddr),
                         (const void *)
-                        PADDR_TO_KVADDR(region_old->r_pages[j]->vp_paddr),
+                        PADDR_TO_KVADDR(region_old->r_pages[j]->lp_paddr),
                         PAGE_SIZE);
             }
         }

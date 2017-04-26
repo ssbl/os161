@@ -42,6 +42,18 @@ vm_swap_bootstrap(void)
     kprintf("Swap capacity: %u pages\n", swp_numslots);
 }
 
+void
+vm_swapin(void)
+{
+
+}
+
+void
+vm_swapout(void)
+{
+
+}
+
 int
 vm_fault(int faulttype, vaddr_t faultaddress)
 {
@@ -73,8 +85,13 @@ vm_fault(int faulttype, vaddr_t faultaddress)
                 vbase = as->as_stack[i]->lp_startaddr;
 
                 if (faultaddress == vbase) {
+                    /* if (as->as_stack[i]->lp_slot == -1) { */
                     paddr = as->as_stack[i]->lp_paddr;
+                    /*     goto skip_regions;
+                     * } else {
+                     *     paddr = vm_swapin_lpage(as->as_stack[i]); */
                     goto skip_regions;
+                    /* } */
                 }
             } else {
                 nullpage = i;
@@ -88,6 +105,10 @@ vm_fault(int faulttype, vaddr_t faultaddress)
         spinlock_acquire(&coremap_lock);
         paddr = coremap_alloc_page();
         spinlock_release(&coremap_lock);
+
+        /* if (paddr == 0) {
+         *     paddr = vm_swapout();
+         * } */
 
         KASSERT(paddr != 0);
 
@@ -155,13 +176,20 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
                 spinlock_acquire(&coremap_lock);
                 paddr = coremap_alloc_page();
-                KASSERT(paddr != 0);
-                region->r_pages[pageno] = coremap[paddr / PAGE_SIZE]->cme_page;
                 spinlock_release(&coremap_lock);
 
+                KASSERT(paddr != 0);
+
+                region->r_pages[pageno] = kmalloc(sizeof(struct lpage));
+                if (region->r_pages[pageno] == NULL) {
+                    return ENOMEM;
+                }
+
+                region->r_pages[pageno]->lp_startaddr = faultaddress;
+                region->r_pages[pageno]->lp_paddr = paddr;
                 bzero((void *)PADDR_TO_KVADDR(paddr), PAGE_SIZE);
             } else {
-                paddr = region->r_pages[pageno]->vp_paddr;
+                paddr = region->r_pages[pageno]->lp_paddr;
             }
         }
     }

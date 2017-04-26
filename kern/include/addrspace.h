@@ -67,7 +67,7 @@ struct region {
     unsigned r_permissions:3;
     vaddr_t r_startaddr;
     unsigned r_numpages;
-    struct vpage **r_pages;
+    struct lpage **r_pages;
 };
 
 /*

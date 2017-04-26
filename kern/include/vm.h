@@ -63,6 +63,10 @@ struct vnode *swp_disk;
 void vm_bootstrap(void);
 void vm_swap_bootstrap(void);
 
+/* Swap functions */
+void vm_swapin(void);
+void vm_swapout(void);
+
 /* Fault handling function called by trap code */
 int vm_fault(int faulttype, vaddr_t faultaddress);
 

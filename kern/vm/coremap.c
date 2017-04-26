@@ -28,8 +28,8 @@ coremap_init(void)
 {
     int i;
     int kernel_pages, numpages;
-    int entries, pages_needed, ptr_pages_needed, vpage_pages_needed;
-    paddr_t ramsize, pageaddr, cmeaddr;
+    int entries, pages_needed, ptr_pages_needed;
+    paddr_t ramsize, cmeaddr;
     struct cm_entry *cme = NULL;
 
     ramsize = ram_getsize();
@@ -37,28 +37,23 @@ coremap_init(void)
 
     pages_needed = countpages(entries, sizeof(struct cm_entry));
     ptr_pages_needed = countpages(entries, sizeof(struct cm_entry *));
-    vpage_pages_needed = countpages(entries, sizeof(struct vpage));
 
-    numpages = ram_stealmem(vpage_pages_needed);
+    numpages = ram_stealmem(pages_needed);
+    cmeaddr = numpages;
     kernel_pages = numpages / PAGE_SIZE;
-    pageaddr = numpages;
-    cmeaddr = ram_stealmem(pages_needed);
     coremap = (struct cm_entry **)
         PADDR_TO_KVADDR(ram_stealmem(ptr_pages_needed));
     numpages = kernel_pages + pages_needed
-        + ptr_pages_needed + vpage_pages_needed;
+        + ptr_pages_needed;
 
     for (i = 0; i < entries; i++) {
         cme = (struct cm_entry *) PADDR_TO_KVADDR(cmeaddr);
-        cme->cme_page = (struct vpage *) PADDR_TO_KVADDR(pageaddr);
-        cme->cme_page->vp_paddr = i * PAGE_SIZE;
 		coremap[i] = cme;
         if (i < numpages) {
             cme->cme_is_pinned = 1;
             cme->cme_is_allocated = 1;
         }
         cmeaddr += sizeof(struct cm_entry);
-        pageaddr += sizeof(struct vpage);
     }
 
     spinlock_init(&coremap_lock);
@@ -133,7 +128,7 @@ coremap_alloc_npages(unsigned n)
         }
     }
 
-    return coremap[start]->cme_page->vp_paddr;
+    return start*PAGE_SIZE;
 }
 
 /* Does not evict pages! */
@@ -148,7 +143,7 @@ coremap_alloc_page(void)
         if (!coremap[i]->cme_is_allocated) {
             coremap[i]->cme_is_allocated = 1;
             coremap[i]->cme_is_last_page = 1;
-            paddr = coremap[i]->cme_page->vp_paddr;
+            paddr = i*PAGE_SIZE;
             cm_used_bytes += PAGE_SIZE;
             coremap[i]->cme_pid = pid;
             /* cm_first_free_page = coremap_nextfree(i); */
