@@ -63,7 +63,6 @@ bool vm_swap_enabled;
 
 /* Initialization functions */
 void vm_bootstrap(void);
-void vm_swap_bootstrap(void);
 
 /* Swap functions */
 void vm_swapin(void);

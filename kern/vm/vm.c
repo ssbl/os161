@@ -13,35 +13,29 @@
 #include <addrspace.h>
 #include <coremap.h>
 
-bool vm_swap_enabled = false;
 unsigned swp_numslots;
 struct vnode *swp_disk;
+bool vm_swap_enabled = false;
 
 void
 vm_bootstrap(void)
-{
-
-}
-
-void
-vm_swap_bootstrap(void)
 {
     int result;
     struct stat statbuf;
 
     result = vfs_open((char *)SWAP_FILE, O_RDWR, 0, &swp_disk);
     if (result) {
-        /* panic("swap: Couldn't open swap file"); */
         return;
     }
 
     result = VOP_STAT(swp_disk, &statbuf);
     if (result) {
-        panic("swap: Couldn't stat swap file");
+        return;
     }
 
     swp_numslots = statbuf.st_size / PAGE_SIZE;
-    kprintf("Swap capacity: %u pages\n", swp_numslots);
+    vm_swap_enabled = true;
+    kprintf("Swap capacity: %d pages\n", swp_numslots);
 }
 
 void

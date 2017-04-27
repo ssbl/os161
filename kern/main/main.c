@@ -111,7 +111,6 @@ boot(void)
 	/* Early initialization. */
 	ram_bootstrap();
     coremap_init();
-	vm_bootstrap();
 	proc_bootstrap();
 	thread_bootstrap();
 	hardclock_bootstrap();
@@ -130,6 +129,7 @@ boot(void)
 	kheap_nextgeneration();
 
 	/* Late phase of initialization. */
+	vm_bootstrap();
 	kprintf_bootstrap();
 	thread_start_cpus();
 	test161_bootstrap();
@@ -139,7 +139,6 @@ boot(void)
 
 	kheap_nextgeneration();
     proctable_create();
-    vm_swap_bootstrap();
 
 	/*
 	 * Make sure various things aren't screwed up.
