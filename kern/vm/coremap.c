@@ -204,6 +204,7 @@ search:
         lpage = coremap[paddr / PAGE_SIZE]->cme_page;
         coremap[paddr / PAGE_SIZE]->cme_page = NULL;
         coremap[paddr / PAGE_SIZE]->cme_is_allocated = 0;
+        cm_used_bytes -= PAGE_SIZE;
         spinlock_release(&coremap_lock);
         vm_swapout(lpage);
         goto search;
