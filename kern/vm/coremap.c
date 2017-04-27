@@ -154,7 +154,6 @@ coremap_alloc_npages(unsigned n)
             /* mark them all allocated */
             coremap[i]->cme_is_last_page = 1;
             for (int j = start; j <= i; j++) {
-                kprintf("n");
     			cm_used_bytes += PAGE_SIZE;
 				coremap[j]->cme_is_allocated = 1;
                 coremap[j]->cme_pid = pid;
@@ -185,6 +184,15 @@ coremap_alloc_page(void)
 
 search:
     spinlock_acquire(&coremap_lock);
+    if (cm_used_bytes / cm_numpages == PAGE_SIZE) {
+        if (vm_swap_enabled) {
+            goto evict;
+        } else {
+            spinlock_release(&coremap_lock);
+            return 0;
+        }
+    }
+
     for (i = cm_start_page; i < entries; i++) {
         if (!coremap[i]->cme_is_allocated) {
             coremap[i]->cme_is_allocated = 1;
@@ -198,6 +206,7 @@ search:
         }
     }
 
+evict:
     /* SWAP OUT HERE */
     if (paddr == 0) {
         paddr = coremap_choose_victim();
