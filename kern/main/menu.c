@@ -39,8 +39,6 @@
 #include <synch.h>
 #include <thread.h>
 #include <proc.h>
-#include <proctable.h>
-#include <addrspace.h>
 #include <vfs.h>
 #include <sfs.h>
 #include <syscall.h>

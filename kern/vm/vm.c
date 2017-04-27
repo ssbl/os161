@@ -5,17 +5,58 @@
 #include <kern/errno.h>
 #include <kern/stat.h>
 #include <current.h>
+#include <uio.h>
 #include <vfs.h>
 #include <vnode.h>
 #include <proc.h>
+#include <addrspace.h>
 #include <vm.h>
 #include <mips/tlb.h>
-#include <addrspace.h>
 #include <coremap.h>
+#include <bitmap.h>
 
 unsigned swp_numslots;
 struct vnode *swp_disk;
+struct bitmap *swp_bitmap;
+struct lock *swp_lock;
 bool vm_swap_enabled = false;
+
+struct lpage *
+vm_create_lpage(paddr_t paddr, vaddr_t faultaddress)
+{
+    struct lpage *lpage = NULL;
+
+    lpage = kmalloc(sizeof(struct lpage));
+    if (lpage == NULL) {
+        return NULL;
+    }
+
+    lpage->lp_lock = lock_create("lp_lock");
+    if (lpage->lp_lock == NULL) {
+        kfree(lpage);
+        return NULL;
+    }
+
+    lpage->lp_paddr = paddr;
+    lpage->lp_startaddr = faultaddress;
+    lpage->lp_freed = 0;
+    lpage->lp_slot = -1;
+
+    spinlock_acquire(&coremap_lock);
+    coremap[paddr / PAGE_SIZE]->cme_page = lpage;
+    spinlock_release(&coremap_lock);
+
+    return lpage;
+}
+
+void
+vm_destroy_lpage(struct lpage *lpage)
+{
+    KASSERT(lpage != NULL);
+
+    lock_destroy(lpage->lp_lock);
+    kfree(lpage);
+}
 
 void
 vm_bootstrap(void)
@@ -30,26 +71,136 @@ vm_bootstrap(void)
 
     result = VOP_STAT(swp_disk, &statbuf);
     if (result) {
-        return;
+        panic("swap: could not stat swap file");
     }
 
     swp_numslots = statbuf.st_size / PAGE_SIZE;
+
+    swp_bitmap = bitmap_create(swp_numslots);
+    if (swp_bitmap == NULL) {
+        panic("swap: could not create bitmap");
+    }
+
+    swp_lock = lock_create("swp_lock");
+    if (swp_lock == NULL) {
+        panic("swap: could not create bitmap lock");
+    }
+
     vm_swap_enabled = true;
     kprintf("Swap capacity: %d pages\n", swp_numslots);
+    kprintf("Kernel pages used: %d\n", cm_start_page);
 }
 
 void
-vm_swapin(void)
-{
+vm_cleartlb(void) {
+    int i, spl = splhigh();
 
+    for (i = 0; i < NUM_TLB; i++) {
+        tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
+    }
+
+    splx(spl);
+}
+
+int
+swp_get_slot(void)
+{
+    /* KASSERT(lock_do_i_hold(swp_lock)); */
+
+    unsigned i;
+
+    for (i = 0; i < swp_numslots; i++) {
+        if (!bitmap_isset(swp_bitmap, i)) {
+            return i;
+        }
+    }
+
+    panic("Ran out of disk");
 }
 
 void
-vm_swapout(void)
+vm_swapin(struct lpage *lpage)
 {
+    KASSERT(bitmap_isset(swp_bitmap, lpage->lp_slot));
+
+    int result;
+    paddr_t paddr;
+    struct uio uio;
+    struct iovec iov;
+
+    /* spinlock_acquire(&coremap_lock); */
+    paddr = coremap_alloc_page();
+    coremap[paddr / PAGE_SIZE]->cme_is_pinned = 1;
+    /* spinlock_release(&coremap_lock); */
+
+    uio_kinit(&iov, &uio, (void *)PADDR_TO_KVADDR(paddr),
+              PAGE_SIZE, 0, UIO_READ);
+    uio.uio_offset = lpage->lp_slot * PAGE_SIZE;
+
+    result = VOP_READ(swp_disk, &uio);
+    if (result) {
+        /* TODO: fail in some other way */
+        panic("error reading from swap disk");
+    }
+
+    lock_acquire(swp_lock);
+    bitmap_unmark(swp_bitmap, lpage->lp_slot);
+    lock_release(swp_lock);
+
+    lpage->lp_paddr = paddr;
+    lpage->lp_slot = -1;
+
+    /* kprintf("swapped in %u\n", paddr / PAGE_SIZE); */
+    /* kprintf("i"); */
+    vm_cleartlb();
+}
+
+void
+vm_swapout(struct lpage *lpage)
+{
+    KASSERT(lpage != NULL);
+
+    int slot, result;
+    paddr_t paddr_victim;
+    struct uio uio;
+    struct iovec iov;
+
     /* choose a page to evict */
+    /* spinlock_acquire(&coremap_lock); */
+    /* paddr = coremap_choose_victim(); */
+
+    /* lock_acquire(lpage->lp_lock); */
+    /* lock_release(lpage->lp_lock); */
+
+    /* spinlock_release(&coremap_lock); */
+
+    /* get a free disk slot */
+    lock_acquire(swp_lock);
+    slot = swp_get_slot();
+    bitmap_mark(swp_bitmap, slot);
+    lock_release(swp_lock);
+
+    /* update slot in PTE */
+    lock_acquire(lpage->lp_lock);
+    paddr_victim = lpage->lp_paddr;
+    lpage->lp_slot = slot;
+    lpage->lp_paddr = 0;
+    lock_release(lpage->lp_lock);
+
     /* write that page's data to swap file */
-    /* update owner's PTE */
+    uio_kinit(&iov, &uio, (void *)PADDR_TO_KVADDR(paddr_victim),
+              PAGE_SIZE, 0, UIO_WRITE);
+    uio.uio_offset = slot*PAGE_SIZE;
+
+    result = VOP_WRITE(swp_disk, &uio);
+    if (result) {
+        /* TODO: fail in some other way */
+        panic("error writing to swap disk");
+    }
+
+    /* kprintf("o"); */
+    /* kprintf("swapped out %u\n", paddr_victim / PAGE_SIZE); */
+    vm_cleartlb();
 }
 
 int
@@ -84,14 +235,13 @@ vm_fault(int faulttype, vaddr_t faultaddress)
                 vbase = as->as_stack[i]->lp_startaddr;
 
                 if (faultaddress == vbase) {
-                    /* if (as->as_stack[i]->lp_slot == -1) { */
-                    paddr = as->as_stack[i]->lp_paddr;
+                    if (as->as_stack[i]->lp_paddr == 0) {
+                        vm_swapin(as->as_stack[i]);
+                    }
+
                     lpage = as->as_stack[i];
-                    /*     goto skip_regions;
-                     * } else {
-                     *     paddr = vm_swapin_lpage(as->as_stack[i]); */
+                    paddr = lpage->lp_paddr;
                     goto skip_regions;
-                    /* } */
                 }
             } else {
                 nullpage = i;
@@ -102,13 +252,11 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
         as->as_heapmax = faultaddress;
 
-        spinlock_acquire(&coremap_lock);
         paddr = coremap_alloc_page();
-        spinlock_release(&coremap_lock);
 
         KASSERT(paddr != 0);
 
-        as->as_stack[nullpage] = as_create_lpage(paddr, faultaddress);
+        as->as_stack[nullpage] = vm_create_lpage(paddr, faultaddress);
         if (as->as_stack[nullpage] == NULL) {
             return ENOMEM;
         }
@@ -135,14 +283,12 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
         KASSERT(i == HEAPPAGES);
 
-        spinlock_acquire(&coremap_lock);
         paddr = coremap_alloc_page();
-        spinlock_release(&coremap_lock);
 
         KASSERT(paddr != 0);
 
         if (as->as_heap[nullpage] == NULL) {
-            as->as_heap[nullpage] = as_create_lpage(paddr, faultaddress);
+            as->as_heap[nullpage] = vm_create_lpage(paddr, faultaddress);
             if (as->as_heap[nullpage] == NULL) {
                 return ENOMEM;
             }
@@ -172,13 +318,11 @@ vm_fault(int faulttype, vaddr_t faultaddress)
             if (region->r_pages[pageno] == NULL) {
                 /* OOM page, need to allocate */
 
-                spinlock_acquire(&coremap_lock);
                 paddr = coremap_alloc_page();
-                spinlock_release(&coremap_lock);
 
                 KASSERT(paddr != 0);
 
-                region->r_pages[pageno] = as_create_lpage(paddr, faultaddress);
+                region->r_pages[pageno] = vm_create_lpage(paddr, faultaddress);
                 if (region->r_pages[pageno] == NULL) {
                     return ENOMEM;
                 }
@@ -186,8 +330,11 @@ vm_fault(int faulttype, vaddr_t faultaddress)
                 lpage = region->r_pages[pageno];
                 bzero((void *)PADDR_TO_KVADDR(paddr), PAGE_SIZE);
             } else {
-                paddr = region->r_pages[pageno]->lp_paddr;
+                if (region->r_pages[pageno]->lp_paddr == 0) {
+                    vm_swapin(region->r_pages[pageno]);
+                }
                 lpage = region->r_pages[pageno];
+                paddr = lpage->lp_paddr;
             }
         }
     }
@@ -197,9 +344,7 @@ skip_regions:
         return EFAULT;
     }
 
-    /* set last referenced page, update lpage in coremap entry */
     spinlock_acquire(&coremap_lock);
-    coremap_set_lastrefd(paddr);
     coremap_set_lpage(paddr, lpage);
     spinlock_release(&coremap_lock);
 
@@ -263,18 +408,15 @@ skip_regions:
 vaddr_t
 alloc_kpages(unsigned npages)
 {
-    /* (void)npages; */
-    /* return 1; */
-    /* return PADDR_TO_KVADDR(ram_stealmem(npages)); */
     paddr_t paddr;
 
-    spinlock_acquire(&coremap_lock);
     if (npages > 1) {
+        spinlock_acquire(&coremap_lock);
         paddr = coremap_alloc_npages(npages);
+        spinlock_release(&coremap_lock);
     } else {
         paddr = coremap_alloc_page();
     }
-    spinlock_release(&coremap_lock);
 
     if (paddr == 0) {
         return 0;
@@ -304,15 +446,4 @@ vm_tlbshootdown(const struct tlbshootdown *tlbshootdown)
 {
     (void)tlbshootdown;
     panic("tried tlbshootdown\n");
-}
-
-void
-vm_cleartlb(void) {
-    int i, spl = splhigh();
-
-    for (i = 0; i < NUM_TLB; i++) {
-        tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
-    }
-
-    splx(spl);
 }

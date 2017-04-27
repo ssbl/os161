@@ -14,7 +14,7 @@ struct cm_entry {
     bool cme_is_last_page:1;
     bool cme_is_allocated:1;
     bool cme_is_pinned:1;
-    bool cme_is_referenced:1;
+    bool cme_is_refd:1;
 };
 
 
@@ -31,5 +31,6 @@ paddr_t coremap_alloc_page(void);
 void coremap_free_kpages(paddr_t paddr);
 void coremap_set_lastrefd(paddr_t paddr);
 void coremap_set_lpage(paddr_t paddr, struct lpage *lpage);
+paddr_t coremap_choose_victim(void);
 
 #endif  /* _COREMAP_H_ */

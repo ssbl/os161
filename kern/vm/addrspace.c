@@ -44,38 +44,6 @@
  * used. The cheesy hack versions in dumbvm.c are used instead.
  */
 
-struct lpage *
-as_create_lpage(paddr_t paddr, vaddr_t faultaddress)
-{
-    struct lpage *lpage = NULL;
-
-    lpage = kmalloc(sizeof(struct lpage));
-    if (lpage == NULL) {
-        return NULL;
-    }
-
-    lpage->lp_lock = lock_create("lp_lock");
-    if (lpage->lp_lock == NULL) {
-        kfree(lpage);
-        return NULL;
-    }
-
-    lpage->lp_paddr = paddr;
-    lpage->lp_startaddr = faultaddress;
-    lpage->lp_freed = 0;
-    lpage->lp_slot = -1;
-
-    return lpage;
-}
-
-void
-as_destroy_lpage(struct lpage *lpage)
-{
-    KASSERT(lpage != NULL);
-
-    lock_destroy(lpage->lp_lock);
-    kfree(lpage);
-}
 
 struct addrspace *
 as_create(void)
@@ -121,10 +89,12 @@ as_destroy(struct addrspace *as)
         struct region *r = as->as_regions[i];
         for (unsigned j = 0; j < r->r_numpages; j++) {
             if (r->r_pages[j] != NULL) {
-                spinlock_acquire(&coremap_lock);
-                coremap_free_kpages(r->r_pages[j]->lp_paddr);
-                spinlock_release(&coremap_lock);
-                as_destroy_lpage(r->r_pages[j]);
+                if (r->r_pages[j]->lp_paddr != 0) {
+                    spinlock_acquire(&coremap_lock);
+                    coremap_free_kpages(r->r_pages[j]->lp_paddr);
+                    spinlock_release(&coremap_lock);
+                }
+                vm_destroy_lpage(r->r_pages[j]);
             }
         }
         kfree(as->as_regions[i]->r_pages);
@@ -133,10 +103,12 @@ as_destroy(struct addrspace *as)
 
     for (i = 0; i < LPAGES; i++) {
         if (as->as_stack[i] != NULL) {
-            spinlock_acquire(&coremap_lock);
-            coremap_free_kpages(as->as_stack[i]->lp_paddr);
-            spinlock_release(&coremap_lock);
-            as_destroy_lpage(as->as_stack[i]);
+            if (as->as_stack[i]->lp_paddr != 0) {
+                spinlock_acquire(&coremap_lock);
+                coremap_free_kpages(as->as_stack[i]->lp_paddr);
+                spinlock_release(&coremap_lock);
+            }
+            vm_destroy_lpage(as->as_stack[i]);
         }
     }
     for (i = 0; i < HEAPPAGES; i++) {
@@ -146,7 +118,7 @@ as_destroy(struct addrspace *as)
                 coremap_free_kpages(as->as_heap[i]->lp_paddr);
                 spinlock_release(&coremap_lock);
             }
-            as_destroy_lpage(as->as_heap[i]);
+            vm_destroy_lpage(as->as_heap[i]);
         }
     }
 
@@ -366,6 +338,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
     unsigned i, j;
     paddr_t paddr;
     struct addrspace *newas;
+    bool swapped = false;
 
     newas = as_create();
     if (newas == NULL) {
@@ -409,17 +382,18 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 
         for (j = 0; j < region_old->r_numpages; j++) {
             if (region_old->r_pages[j] != NULL) {
-                spinlock_acquire(&coremap_lock);
+                if (region_old->r_pages[j]->lp_paddr == 0) {
+                    vm_swapin(region_old->r_pages[j]);
+                    swapped = true;
+                }
                 paddr = coremap_alloc_page();
                 if (paddr == 0) {
-                    spinlock_release(&coremap_lock);
                     /* as_destroy(newas); */
                     return ENOMEM;
                 }
-                spinlock_release(&coremap_lock);
 
                 region_new->r_pages[j] =
-                    as_create_lpage(paddr, region_old->r_pages[j]->lp_startaddr);
+                    vm_create_lpage(paddr, region_old->r_pages[j]->lp_startaddr);
                 if (region_new->r_pages[j] == NULL) {
                     return ENOMEM;
                 }
@@ -428,22 +402,30 @@ as_copy(struct addrspace *old, struct addrspace **ret)
                         (const void *)
                         PADDR_TO_KVADDR(region_old->r_pages[j]->lp_paddr),
                         PAGE_SIZE);
+
+                if (swapped) {
+                    vm_swapout(region_old->r_pages[j]);
+                    vm_swapout(region_new->r_pages[j]);
+                    swapped = false;
+                }
             }
         }
     }
 
     for (i = 0; i < LPAGES; i++) {
         if (old->as_stack[i] != NULL) {
-            spinlock_acquire(&coremap_lock);
+            if (old->as_stack[i]->lp_paddr == 0) {
+                vm_swapin(old->as_stack[i]);
+                swapped = true;
+            }
+
             paddr = coremap_alloc_page();
             if (paddr == 0) {
-                spinlock_release(&coremap_lock);
                 return ENOMEM;
             }
-            spinlock_release(&coremap_lock);
 
             newas->as_stack[i] =
-                as_create_lpage(paddr, old->as_stack[i]->lp_startaddr);
+                vm_create_lpage(paddr, old->as_stack[i]->lp_startaddr);
             if (newas->as_stack[i] == NULL) {
                 /* as_destroy(newas); */
                 return ENOMEM;
@@ -452,20 +434,23 @@ as_copy(struct addrspace *old, struct addrspace **ret)
             memmove((void *)PADDR_TO_KVADDR(newas->as_stack[i]->lp_paddr),
                     (const void *)PADDR_TO_KVADDR(old->as_stack[i]->lp_paddr),
                     PAGE_SIZE);
+
+            if (swapped) {
+                vm_swapout(old->as_stack[i]);
+                vm_swapout(newas->as_stack[i]);
+                swapped = false;
+            }
         }
     }
     for (i = 0; i < HEAPPAGES; i++) {
         if (old->as_heap[i] != NULL && old->as_heap[i]->lp_freed == 0) {
-            spinlock_acquire(&coremap_lock);
             paddr = coremap_alloc_page();
             if (paddr == 0) {
-                spinlock_release(&coremap_lock);
                 return ENOMEM;
             }
-            spinlock_release(&coremap_lock);
 
             newas->as_heap[i] =
-                as_create_lpage(paddr, old->as_heap[i]->lp_startaddr);
+                vm_create_lpage(paddr, old->as_heap[i]->lp_startaddr);
             if (newas->as_heap[i] == NULL) {
                 /* as_destroy(newas); */
                 return ENOMEM;

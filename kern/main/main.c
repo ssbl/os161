@@ -116,7 +116,6 @@ boot(void)
 	hardclock_bootstrap();
 	vfs_bootstrap();
 	kheap_nextgeneration();
-    cm_initted = true;
 
 	/* Probe and initialize devices. Interrupts should come on. */
 	kprintf("Device probe...\n");
@@ -139,6 +138,7 @@ boot(void)
 
 	kheap_nextgeneration();
     proctable_create();
+    cm_initted = true;
 
 	/*
 	 * Make sure various things aren't screwed up.

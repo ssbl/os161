@@ -51,6 +51,14 @@ struct vpage {
     struct spinlock vp_lock;
 };
 
+struct lpage {
+    vaddr_t lp_startaddr;
+    paddr_t lp_paddr;
+    bool lp_freed:1;
+    int lp_slot:14;             /* 8192 slots, -1 for in-memory page */
+    struct lock *lp_lock;
+};
+
 
 /* swap disk name */
 #define SWAP_FILE "lhd0raw:"
@@ -60,13 +68,23 @@ unsigned swp_numslots;
 struct vnode *swp_disk;
 /* is swapping enabled? */
 bool vm_swap_enabled;
+/* bitmap for swap disk */
+struct bitmap *swp_bitmap;
+/* lock for swap bitmap */
+struct lock *swp_lock;
+
+/* PTE */
+struct lpage *vm_create_lpage(paddr_t paddr, vaddr_t faultaddress);
+void vm_destroy_lpage(struct lpage *lpage);
 
 /* Initialization functions */
 void vm_bootstrap(void);
 
 /* Swap functions */
-void vm_swapin(void);
-void vm_swapout(void);
+void vm_swapin(struct lpage *lpage);
+void vm_swapout(struct lpage *lpage);
+
+int swp_get_slot(void);
 
 /* Fault handling function called by trap code */
 int vm_fault(int faulttype, vaddr_t faultaddress);
