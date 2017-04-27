@@ -7,7 +7,7 @@ struct cm_entry **coremap;
 struct spinlock coremap_lock;
 
 struct cm_entry {
-    struct vpage *cme_page;
+    struct lpage *cme_page;
     unsigned cme_cpu_id:4;
     int cme_tlb_index:7;
     pid_t cme_pid;
@@ -23,10 +23,13 @@ int cm_numpages;
 int cm_start_page;
 int cm_first_free_page;
 unsigned int cm_used_bytes;
+int cm_last_refd_page;
 
 void coremap_init(void);
 paddr_t coremap_alloc_npages(unsigned n);
 paddr_t coremap_alloc_page(void);
 void coremap_free_kpages(paddr_t paddr);
+void coremap_set_lastrefd(paddr_t paddr);
+void coremap_set_lpage(paddr_t paddr, struct lpage *lpage);
 
 #endif  /* _COREMAP_H_ */

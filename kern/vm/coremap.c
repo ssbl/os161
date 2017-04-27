@@ -6,6 +6,7 @@
 #include <coremap.h>
 #include <spinlock.h>
 #include <syscall.h>
+#include <addrspace.h>
 
 
 struct cm_entry **coremap;
@@ -13,6 +14,7 @@ unsigned int cm_used_bytes = 0;
 int cm_numpages = 0;
 int cm_first_free_page = 0;
 int cm_start_page = 0;
+int cm_last_refd_page = 0;
 bool cm_initted = false;
 
 static int
@@ -61,6 +63,7 @@ coremap_init(void)
     cm_start_page = numpages;
     cm_used_bytes = numpages * PAGE_SIZE;
 	cm_numpages = i;
+    cm_last_refd_page = numpages;
 }
 
 static int
@@ -175,4 +178,24 @@ coremap_free_kpages(paddr_t paddr)
 			break;
 		}  
 	}
+}
+
+void
+coremap_set_lastrefd(paddr_t paddr)
+{
+    KASSERT(paddr != 0);
+
+    int pageno = paddr / PAGE_SIZE;
+
+    coremap[pageno]->cme_is_referenced = 1;
+    cm_last_refd_page = pageno;
+}
+
+void
+coremap_set_lpage(paddr_t paddr, struct lpage *lpage)
+{
+    KASSERT(paddr != 0);
+    KASSERT(lpage != NULL);
+
+    coremap[paddr / PAGE_SIZE]->cme_page = lpage;
 }

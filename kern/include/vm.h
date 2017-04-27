@@ -58,6 +58,8 @@ struct vpage {
 unsigned swp_numslots;
 /* vnode for the swap file */
 struct vnode *swp_disk;
+/* is swapping enabled? */
+bool vm_swap_enabled;
 
 /* Initialization functions */
 void vm_bootstrap(void);

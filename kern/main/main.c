@@ -139,7 +139,7 @@ boot(void)
 
 	kheap_nextgeneration();
     proctable_create();
-    /* vm_swap_bootstrap(); */
+    vm_swap_bootstrap();
 
 	/*
 	 * Make sure various things aren't screwed up.

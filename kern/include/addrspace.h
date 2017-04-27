@@ -48,6 +48,8 @@ struct lpage {
     vaddr_t lp_startaddr;
     paddr_t lp_paddr;
     bool lp_freed:1;
+    int lp_slot:14;             /* 8192 slots, -1 for in-memory page */
+    struct lock *lp_lock;
 };
 
 struct dregion {
@@ -167,5 +169,7 @@ int load_elf(struct vnode *v, vaddr_t *entrypoint);
 
 /* Other functions (vm.c) */
 int as_define_stack2(struct addrspace *as, vaddr_t *stackptr);
+struct lpage *as_create_lpage(paddr_t paddr, vaddr_t faultaddress);
+void as_destroy_lpage(struct lpage *lpage);
 
 #endif /* _ADDRSPACE_H_ */

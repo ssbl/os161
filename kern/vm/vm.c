@@ -13,6 +13,7 @@
 #include <addrspace.h>
 #include <coremap.h>
 
+bool vm_swap_enabled = false;
 unsigned swp_numslots;
 struct vnode *swp_disk;
 
@@ -30,7 +31,8 @@ vm_swap_bootstrap(void)
 
     result = vfs_open((char *)SWAP_FILE, O_RDWR, 0, &swp_disk);
     if (result) {
-        panic("swap: Couldn't open swap file");
+        /* panic("swap: Couldn't open swap file"); */
+        return;
     }
 
     result = VOP_STAT(swp_disk, &statbuf);
@@ -51,7 +53,9 @@ vm_swapin(void)
 void
 vm_swapout(void)
 {
-
+    /* choose a page to evict */
+    /* write that page's data to swap file */
+    /* update owner's PTE */
 }
 
 int
@@ -64,6 +68,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
     uint32_t ehi, elo;
     vaddr_t vtop, vbase;
     paddr_t paddr = 0;
+    struct lpage *lpage;
 
     faultaddress &= PAGE_FRAME;
 
@@ -87,6 +92,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
                 if (faultaddress == vbase) {
                     /* if (as->as_stack[i]->lp_slot == -1) { */
                     paddr = as->as_stack[i]->lp_paddr;
+                    lpage = as->as_stack[i];
                     /*     goto skip_regions;
                      * } else {
                      *     paddr = vm_swapin_lpage(as->as_stack[i]); */
@@ -106,19 +112,14 @@ vm_fault(int faulttype, vaddr_t faultaddress)
         paddr = coremap_alloc_page();
         spinlock_release(&coremap_lock);
 
-        /* if (paddr == 0) {
-         *     paddr = vm_swapout();
-         * } */
-
         KASSERT(paddr != 0);
 
-        as->as_stack[nullpage] = kmalloc(sizeof(struct lpage));
+        as->as_stack[nullpage] = as_create_lpage(paddr, faultaddress);
         if (as->as_stack[nullpage] == NULL) {
             return ENOMEM;
         }
 
-        as->as_stack[nullpage]->lp_paddr = paddr;
-        as->as_stack[nullpage]->lp_startaddr = faultaddress;
+        lpage = as->as_stack[nullpage];
         bzero((void *)PADDR_TO_KVADDR(paddr), PAGE_SIZE);
         goto skip_regions;
     } else if (faultaddress >= as->as_heapstart &&
@@ -130,6 +131,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
                 if (faultaddress == vbase) {
                     paddr = as->as_heap[i]->lp_paddr;
+                    lpage = as->as_heap[i];
                     goto skip_regions;
                 }
             } else {
@@ -146,15 +148,17 @@ vm_fault(int faulttype, vaddr_t faultaddress)
         KASSERT(paddr != 0);
 
         if (as->as_heap[nullpage] == NULL) {
-            as->as_heap[nullpage] = kmalloc(sizeof(struct lpage));
+            as->as_heap[nullpage] = as_create_lpage(paddr, faultaddress);
             if (as->as_heap[nullpage] == NULL) {
                 return ENOMEM;
             }
+        } else {
+            as->as_heap[nullpage]->lp_freed = 0;
+            as->as_heap[nullpage]->lp_paddr = paddr;
+            as->as_heap[nullpage]->lp_startaddr = faultaddress;
         }
 
-        as->as_heap[nullpage]->lp_freed = 0;
-        as->as_heap[nullpage]->lp_paddr = paddr;
-        as->as_heap[nullpage]->lp_startaddr = faultaddress;
+        lpage = as->as_heap[nullpage];
         bzero((void *)PADDR_TO_KVADDR(paddr), PAGE_SIZE);
         goto skip_regions;
     }
@@ -180,16 +184,16 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
                 KASSERT(paddr != 0);
 
-                region->r_pages[pageno] = kmalloc(sizeof(struct lpage));
+                region->r_pages[pageno] = as_create_lpage(paddr, faultaddress);
                 if (region->r_pages[pageno] == NULL) {
                     return ENOMEM;
                 }
 
-                region->r_pages[pageno]->lp_startaddr = faultaddress;
-                region->r_pages[pageno]->lp_paddr = paddr;
+                lpage = region->r_pages[pageno];
                 bzero((void *)PADDR_TO_KVADDR(paddr), PAGE_SIZE);
             } else {
                 paddr = region->r_pages[pageno]->lp_paddr;
+                lpage = region->r_pages[pageno];
             }
         }
     }
@@ -198,6 +202,12 @@ skip_regions:
     if (paddr == 0) {
         return EFAULT;
     }
+
+    /* set last referenced page, update lpage in coremap entry */
+    spinlock_acquire(&coremap_lock);
+    coremap_set_lastrefd(paddr);
+    coremap_set_lpage(paddr, lpage);
+    spinlock_release(&coremap_lock);
 
     switch (faulttype) {
     case VM_FAULT_READONLY:
