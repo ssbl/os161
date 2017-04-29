@@ -7,6 +7,7 @@
 #include <spinlock.h>
 #include <syscall.h>
 #include <addrspace.h>
+#include <synch.h>
 
 
 struct cm_entry **coremap;
@@ -211,10 +212,10 @@ evict:
     if (paddr == 0) {
         paddr = coremap_choose_victim();
         lpage = coremap[paddr / PAGE_SIZE]->cme_page;
+        lock_acquire(lpage->lp_lock);
         coremap[paddr / PAGE_SIZE]->cme_page = NULL;
         coremap[paddr / PAGE_SIZE]->cme_is_allocated = 0;
         cm_used_bytes -= PAGE_SIZE;
-        spinlock_release(&coremap_lock);
         vm_swapout(lpage);
         goto search;
     } else {
@@ -237,6 +238,7 @@ coremap_free_kpages(paddr_t paddr)
         cm_used_bytes -= PAGE_SIZE;
         coremap[page_number]->cme_pid = 0;
 		coremap[page_number]->cme_is_allocated = 0;
+        coremap[page_number]->cme_page = NULL;
 		if (coremap[page_number]->cme_is_last_page == 1) {
 			coremap[page_number]->cme_is_last_page = 0;
 			break;

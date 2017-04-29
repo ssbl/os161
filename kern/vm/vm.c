@@ -121,6 +121,8 @@ swp_get_slot(void)
 void
 vm_swapin(struct lpage *lpage)
 {
+    KASSERT(lpage != NULL);
+    KASSERT(lock_do_i_hold(lpage->lp_lock));
     KASSERT(bitmap_isset(swp_bitmap, lpage->lp_slot));
 
     int result;
@@ -128,10 +130,7 @@ vm_swapin(struct lpage *lpage)
     struct uio uio;
     struct iovec iov;
 
-    /* spinlock_acquire(&coremap_lock); */
     paddr = coremap_alloc_page();
-    coremap[paddr / PAGE_SIZE]->cme_is_pinned = 1;
-    /* spinlock_release(&coremap_lock); */
 
     uio_kinit(&iov, &uio, (void *)PADDR_TO_KVADDR(paddr),
               PAGE_SIZE, 0, UIO_READ);
@@ -159,20 +158,13 @@ void
 vm_swapout(struct lpage *lpage)
 {
     KASSERT(lpage != NULL);
+    KASSERT(lock_do_i_hold(lpage->lp_lock));
+    KASSERT(spinlock_do_i_hold(&coremap_lock));
 
     int slot, result;
     paddr_t paddr_victim;
     struct uio uio;
     struct iovec iov;
-
-    /* choose a page to evict */
-    /* spinlock_acquire(&coremap_lock); */
-    /* paddr = coremap_choose_victim(); */
-
-    /* lock_acquire(lpage->lp_lock); */
-    /* lock_release(lpage->lp_lock); */
-
-    /* spinlock_release(&coremap_lock); */
 
     /* get a free disk slot */
     lock_acquire(swp_lock);
@@ -181,11 +173,11 @@ vm_swapout(struct lpage *lpage)
     lock_release(swp_lock);
 
     /* update slot in PTE */
-    lock_acquire(lpage->lp_lock);
     paddr_victim = lpage->lp_paddr;
     lpage->lp_slot = slot;
     lpage->lp_paddr = 0;
     lock_release(lpage->lp_lock);
+    spinlock_release(&coremap_lock);
 
     /* write that page's data to swap file */
     uio_kinit(&iov, &uio, (void *)PADDR_TO_KVADDR(paddr_victim),
@@ -232,6 +224,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
         int nullpage = 0;
         for (i = 0; i < LPAGES; i++) {
             if (as->as_stack[i] != NULL) {
+                lock_acquire(as->as_stack[i]->lp_lock);
                 vbase = as->as_stack[i]->lp_startaddr;
 
                 if (faultaddress == vbase) {
@@ -241,8 +234,10 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
                     lpage = as->as_stack[i];
                     paddr = lpage->lp_paddr;
+                    lock_release(lpage->lp_lock);
                     goto skip_regions;
                 }
+                lock_release(as->as_stack[i]->lp_lock);
             } else {
                 nullpage = i;
             }
@@ -317,9 +312,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
             pageno = (faultaddress - vbase) / PAGE_SIZE;
             if (region->r_pages[pageno] == NULL) {
                 /* OOM page, need to allocate */
-
                 paddr = coremap_alloc_page();
-
                 KASSERT(paddr != 0);
 
                 region->r_pages[pageno] = vm_create_lpage(paddr, faultaddress);
@@ -330,11 +323,13 @@ vm_fault(int faulttype, vaddr_t faultaddress)
                 lpage = region->r_pages[pageno];
                 bzero((void *)PADDR_TO_KVADDR(paddr), PAGE_SIZE);
             } else {
+                lock_acquire(region->r_pages[pageno]->lp_lock);
                 if (region->r_pages[pageno]->lp_paddr == 0) {
                     vm_swapin(region->r_pages[pageno]);
                 }
                 lpage = region->r_pages[pageno];
                 paddr = lpage->lp_paddr;
+                lock_release(lpage->lp_lock);
             }
         }
     }
@@ -445,5 +440,5 @@ void
 vm_tlbshootdown(const struct tlbshootdown *tlbshootdown)
 {
     (void)tlbshootdown;
-    panic("tried tlbshootdown\n");
+    /* vm_cleartlb(); */
 }

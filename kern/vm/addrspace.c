@@ -382,19 +382,22 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 
         for (j = 0; j < region_old->r_numpages; j++) {
             if (region_old->r_pages[j] != NULL) {
-                if (region_old->r_pages[j]->lp_paddr == 0) {
+                lock_acquire(region_old->r_pages[j]->lp_lock);
+                if (region_old->r_pages[j]->lp_slot != -1) {
                     vm_swapin(region_old->r_pages[j]);
                     swapped = true;
                 }
                 paddr = coremap_alloc_page();
                 if (paddr == 0) {
                     /* as_destroy(newas); */
+                    lock_release(region_old->r_pages[j]->lp_lock);
                     return ENOMEM;
                 }
 
                 region_new->r_pages[j] =
                     vm_create_lpage(paddr, region_old->r_pages[j]->lp_startaddr);
                 if (region_new->r_pages[j] == NULL) {
+                    lock_release(region_old->r_pages[j]->lp_lock);
                     return ENOMEM;
                 }
 
@@ -404,16 +407,18 @@ as_copy(struct addrspace *old, struct addrspace **ret)
                         PAGE_SIZE);
 
                 if (swapped) {
-                    vm_swapout(region_old->r_pages[j]);
-                    vm_swapout(region_new->r_pages[j]);
+                    /* vm_swapout(region_old->r_pages[j]);
+                     * vm_swapout(region_new->r_pages[j]); */
                     swapped = false;
                 }
+                lock_release(region_old->r_pages[j]->lp_lock);
             }
         }
     }
 
     for (i = 0; i < LPAGES; i++) {
         if (old->as_stack[i] != NULL) {
+            lock_acquire(old->as_stack[i]->lp_lock);
             if (old->as_stack[i]->lp_paddr == 0) {
                 vm_swapin(old->as_stack[i]);
                 swapped = true;
@@ -421,6 +426,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 
             paddr = coremap_alloc_page();
             if (paddr == 0) {
+                lock_release(old->as_stack[i]->lp_lock);
                 return ENOMEM;
             }
 
@@ -428,6 +434,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
                 vm_create_lpage(paddr, old->as_stack[i]->lp_startaddr);
             if (newas->as_stack[i] == NULL) {
                 /* as_destroy(newas); */
+                lock_release(old->as_stack[i]->lp_lock);
                 return ENOMEM;
             }
 
@@ -436,10 +443,11 @@ as_copy(struct addrspace *old, struct addrspace **ret)
                     PAGE_SIZE);
 
             if (swapped) {
-                vm_swapout(old->as_stack[i]);
-                vm_swapout(newas->as_stack[i]);
+                /* vm_swapout(old->as_stack[i]);
+                 * vm_swapout(newas->as_stack[i]); */
                 swapped = false;
             }
+            lock_release(old->as_stack[i]->lp_lock);
         }
     }
     for (i = 0; i < HEAPPAGES; i++) {
