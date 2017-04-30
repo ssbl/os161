@@ -82,7 +82,7 @@ void vm_bootstrap(void);
 
 /* Swap functions */
 void vm_swapin(struct lpage *lpage);
-void vm_swapout(struct lpage *lpage);
+paddr_t vm_swapout(struct lpage *lpage);
 
 int swp_get_slot(void);
 

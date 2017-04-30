@@ -10,7 +10,7 @@ struct cm_entry {
     struct lpage *cme_page;
     unsigned cme_cpu_id:4;
     int cme_tlb_index:7;
-    pid_t cme_pid;
+    /* pid_t cme_pid; */
     bool cme_is_last_page:1;
     bool cme_is_allocated:1;
     bool cme_is_pinned:1;

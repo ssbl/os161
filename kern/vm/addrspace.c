@@ -37,6 +37,7 @@
 #include <proc.h>
 #include <coremap.h>
 #include <syscall.h>
+#include <bitmap.h>
 
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM
@@ -87,14 +88,24 @@ as_destroy(struct addrspace *as)
 
     for (i = 0; i < as->as_numregions; i++) {
         struct region *r = as->as_regions[i];
+
+        if (r->r_pages == NULL) {
+            continue;
+        }
+
         for (unsigned j = 0; j < r->r_numpages; j++) {
             if (r->r_pages[j] != NULL) {
+                lock_acquire(r->r_pages[j]->lp_lock);
                 if (r->r_pages[j]->lp_paddr != 0) {
                     spinlock_acquire(&coremap_lock);
                     coremap_free_kpages(r->r_pages[j]->lp_paddr);
                     spinlock_release(&coremap_lock);
+                } else {
+                    lock_acquire(swp_lock);
+                    bitmap_unmark(swp_bitmap, r->r_pages[j]->lp_slot);
+                    lock_release(swp_lock);
                 }
-                vm_destroy_lpage(r->r_pages[j]);
+                vm_destroy_lpage(r->r_pages[j]); /* releases lock */
             }
         }
         kfree(as->as_regions[i]->r_pages);
@@ -103,12 +114,17 @@ as_destroy(struct addrspace *as)
 
     for (i = 0; i < LPAGES; i++) {
         if (as->as_stack[i] != NULL) {
+            lock_acquire(as->as_stack[i]->lp_lock);
             if (as->as_stack[i]->lp_paddr != 0) {
                 spinlock_acquire(&coremap_lock);
                 coremap_free_kpages(as->as_stack[i]->lp_paddr);
                 spinlock_release(&coremap_lock);
+            } else {
+                lock_acquire(swp_lock);
+                bitmap_unmark(swp_bitmap, as->as_stack[i]->lp_slot);
+                lock_release(swp_lock);
             }
-            vm_destroy_lpage(as->as_stack[i]);
+            vm_destroy_lpage(as->as_stack[i]); /* releases lock */
         }
     }
     for (i = 0; i < HEAPPAGES; i++) {
@@ -244,7 +260,7 @@ as_prepare_load(struct addrspace *as)
     for (unsigned i = 0; i < as->as_numregions; i++) {
         numpages = as->as_regions[i]->r_numpages;
         as->as_regions[i]->r_pages = kmalloc(numpages * sizeof(struct lpage *));
-        if (as->as_regions[i] == NULL) {
+        if (as->as_regions[i]->r_pages == NULL) {
             return ENOMEM;
         }
 

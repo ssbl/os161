@@ -42,9 +42,9 @@ vm_create_lpage(paddr_t paddr, vaddr_t faultaddress)
     lpage->lp_freed = 0;
     lpage->lp_slot = -1;
 
-    spinlock_acquire(&coremap_lock);
-    coremap[paddr / PAGE_SIZE]->cme_page = lpage;
-    spinlock_release(&coremap_lock);
+    /* spinlock_acquire(&coremap_lock);
+     * coremap[paddr / PAGE_SIZE]->cme_page = lpage;
+     * spinlock_release(&coremap_lock); */
 
     return lpage;
 }
@@ -53,7 +53,9 @@ void
 vm_destroy_lpage(struct lpage *lpage)
 {
     KASSERT(lpage != NULL);
+    KASSERT(lock_do_i_hold(lpage->lp_lock));
 
+    lock_release(lpage->lp_lock);
     lock_destroy(lpage->lp_lock);
     kfree(lpage);
 }
@@ -130,7 +132,7 @@ vm_swapin(struct lpage *lpage)
     struct uio uio;
     struct iovec iov;
 
-    paddr = coremap_alloc_page();
+    paddr = coremap_alloc_page(); /* locks */
 
     uio_kinit(&iov, &uio, (void *)PADDR_TO_KVADDR(paddr),
               PAGE_SIZE, 0, UIO_READ);
@@ -149,12 +151,10 @@ vm_swapin(struct lpage *lpage)
     lpage->lp_paddr = paddr;
     lpage->lp_slot = -1;
 
-    /* kprintf("swapped in %u\n", paddr / PAGE_SIZE); */
-    /* kprintf("i"); */
     vm_cleartlb();
 }
 
-void
+paddr_t
 vm_swapout(struct lpage *lpage)
 {
     KASSERT(lpage != NULL);
@@ -176,7 +176,8 @@ vm_swapout(struct lpage *lpage)
     paddr_victim = lpage->lp_paddr;
     lpage->lp_slot = slot;
     lpage->lp_paddr = 0;
-    lock_release(lpage->lp_lock);
+    coremap[paddr_victim / PAGE_SIZE]->cme_page = NULL;
+
     spinlock_release(&coremap_lock);
 
     /* write that page's data to swap file */
@@ -190,9 +191,10 @@ vm_swapout(struct lpage *lpage)
         panic("error writing to swap disk");
     }
 
-    /* kprintf("o"); */
-    /* kprintf("swapped out %u\n", paddr_victim / PAGE_SIZE); */
-    vm_cleartlb();
+    /* vm_cleartlb(); */
+    lock_release(lpage->lp_lock);
+    as_activate();
+    return paddr_victim;
 }
 
 int
@@ -231,6 +233,9 @@ vm_fault(int faulttype, vaddr_t faultaddress)
                     if (as->as_stack[i]->lp_paddr == 0) {
                         vm_swapin(as->as_stack[i]);
                     }
+
+                    KASSERT(as->as_stack[i]->lp_paddr != 0);
+                    KASSERT(as->as_stack[i]->lp_slot == -1);
 
                     lpage = as->as_stack[i];
                     paddr = lpage->lp_paddr;
@@ -327,6 +332,10 @@ vm_fault(int faulttype, vaddr_t faultaddress)
                 if (region->r_pages[pageno]->lp_paddr == 0) {
                     vm_swapin(region->r_pages[pageno]);
                 }
+
+                KASSERT(region->r_pages[pageno]->lp_paddr != 0);
+                KASSERT(region->r_pages[pageno]->lp_slot == -1);
+
                 lpage = region->r_pages[pageno];
                 paddr = lpage->lp_paddr;
                 lock_release(lpage->lp_lock);
@@ -440,5 +449,6 @@ void
 vm_tlbshootdown(const struct tlbshootdown *tlbshootdown)
 {
     (void)tlbshootdown;
-    /* vm_cleartlb(); */
+    /* panic("vm_tlbshootdown"); */
+    as_activate();
 }
