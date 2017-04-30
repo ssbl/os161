@@ -129,6 +129,7 @@ as_destroy(struct addrspace *as)
     }
     for (i = 0; i < HEAPPAGES; i++) {
         if (as->as_heap[i] != NULL) {
+            lock_acquire(as->as_heap[i]->lp_lock);
             if (as->as_heap[i]->lp_freed == 0) {
                 spinlock_acquire(&coremap_lock);
                 coremap_free_kpages(as->as_heap[i]->lp_paddr);
