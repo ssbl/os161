@@ -32,5 +32,6 @@ void coremap_free_kpages(paddr_t paddr);
 void coremap_set_lastrefd(paddr_t paddr);
 void coremap_set_lpage(paddr_t paddr, struct lpage *lpage);
 paddr_t coremap_choose_victim(void);
+int coremap_choose_nvictims(unsigned n);
 
 #endif  /* _COREMAP_H_ */

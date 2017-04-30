@@ -129,20 +129,70 @@ search:
     return i*PAGE_SIZE;
 }
 
+int
+coremap_choose_nvictims(unsigned n)
+{
+    unsigned j;
+    int i = cm_start_page;
+    struct lpage *lpage;
+
+    while (i < cm_numpages) {
+        if (coremap[i]->cme_page == NULL) {
+            i++;
+            continue;
+        }
+
+        for (j = 0; j < n; j++) {
+            if (coremap[i+j]->cme_page == NULL) {
+                i = i + j + 1;
+                break;
+            }
+        }
+
+        if (j == n) {
+            /* panic("gotem"); */
+            for (j = 0; j < n; j++) {
+                if (!spinlock_do_i_hold(&coremap_lock)) {
+                    spinlock_acquire(&coremap_lock);
+                }
+                lpage = coremap[i+j]->cme_page;
+                lock_acquire(lpage->lp_lock);
+                vm_swapout(lpage);
+            }
+            return i;
+        }
+    }
+
+    return 0;
+}
+
 /* SLOW */
-/* Does not evict pages! */
 paddr_t
 coremap_alloc_npages(unsigned n)
 {
     /* pid_t pid = cm_initted ? sys_getpid() : 1; */
+    int i;
     int entries = cm_numpages;
     int start = cm_first_free_page;
     unsigned pages_found = 0;
-    paddr_t paddr = 0;
-    struct lpage *lpage;
 
-search:
-    for (int i = start; i < entries; i++) {
+    if (cm_used_bytes / cm_numpages == PAGE_SIZE) {
+        if (!vm_swap_enabled) {
+            return 0;
+        } else {
+            start = coremap_choose_nvictims(n);
+            spinlock_acquire(&coremap_lock);
+            KASSERT(start != 0);
+            i = start + n - 1;
+            coremap[i]->cme_is_last_page = 1;
+            for (int j = start; j < i; j++) {
+                coremap[j]->cme_is_last_page = 0;
+            }
+            return start*PAGE_SIZE;
+        }
+    }
+
+    for (i = start; i < entries; i++) {
         if (coremap[i]->cme_is_allocated) {
             pages_found = 1;
             start = coremap_nextfree(i);

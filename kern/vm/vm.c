@@ -417,7 +417,9 @@ alloc_kpages(unsigned npages)
     if (npages > 1) {
         spinlock_acquire(&coremap_lock);
         paddr = coremap_alloc_npages(npages);
-        spinlock_release(&coremap_lock);
+        /* if (spinlock_do_i_hold(&coremap_lock)) { */
+            spinlock_release(&coremap_lock);
+        /* } */
     } else {
         paddr = coremap_alloc_page();
     }
