@@ -159,7 +159,6 @@ search:
         }
 
         if (j == n) {
-            /* panic("gotem"); */
             for (j = 0; j < n; j++) {
                 if (!spinlock_do_i_hold(&coremap_lock)) {
                     spinlock_acquire(&coremap_lock);
@@ -199,6 +198,7 @@ coremap_alloc_npages(unsigned n)
             i = start + n - 1;
             coremap[i]->cme_is_last_page = 1;
             for (int j = start; j < i; j++) {
+                coremap[j]->cme_is_allocated = 1;
                 coremap[j]->cme_is_last_page = 0;
             }
             return start*PAGE_SIZE;
