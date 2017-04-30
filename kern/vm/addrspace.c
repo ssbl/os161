@@ -399,16 +399,16 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 
         for (j = 0; j < region_old->r_numpages; j++) {
             if (region_old->r_pages[j] != NULL) {
+                paddr = coremap_alloc_page();
+                if (paddr == 0) {
+                    /* as_destroy(newas); */
+                    return ENOMEM;
+                }
+
                 lock_acquire(region_old->r_pages[j]->lp_lock);
                 if (region_old->r_pages[j]->lp_slot != -1) {
                     vm_swapin(region_old->r_pages[j]);
                     swapped = true;
-                }
-                paddr = coremap_alloc_page();
-                if (paddr == 0) {
-                    /* as_destroy(newas); */
-                    lock_release(region_old->r_pages[j]->lp_lock);
-                    return ENOMEM;
                 }
 
                 region_new->r_pages[j] =
@@ -435,16 +435,15 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 
     for (i = 0; i < LPAGES; i++) {
         if (old->as_stack[i] != NULL) {
+            paddr = coremap_alloc_page();
+            if (paddr == 0) {
+                return ENOMEM;
+            }
+
             lock_acquire(old->as_stack[i]->lp_lock);
             if (old->as_stack[i]->lp_paddr == 0) {
                 vm_swapin(old->as_stack[i]);
                 swapped = true;
-            }
-
-            paddr = coremap_alloc_page();
-            if (paddr == 0) {
-                lock_release(old->as_stack[i]->lp_lock);
-                return ENOMEM;
             }
 
             newas->as_stack[i] =
