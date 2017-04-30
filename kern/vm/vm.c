@@ -151,7 +151,7 @@ vm_swapin(struct lpage *lpage)
     lpage->lp_paddr = paddr;
     lpage->lp_slot = -1;
 
-    vm_cleartlb();
+    /* vm_cleartlb(); */
 }
 
 paddr_t
@@ -161,7 +161,7 @@ vm_swapout(struct lpage *lpage)
     KASSERT(lock_do_i_hold(lpage->lp_lock));
     KASSERT(spinlock_do_i_hold(&coremap_lock));
 
-    int slot, result;
+    int slot, result, index;
     paddr_t paddr_victim;
     struct uio uio;
     struct iovec iov;
@@ -193,7 +193,10 @@ vm_swapout(struct lpage *lpage)
 
     /* vm_cleartlb(); */
     lock_release(lpage->lp_lock);
-    as_activate();
+    /* as_activate(); */
+    if ((index = tlb_probe(lpage->lp_startaddr, 0)) != -1) {
+        tlb_write(TLBHI_INVALID(index), TLBLO_INVALID(), index);
+    }
     return paddr_victim;
 }
 
