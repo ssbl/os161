@@ -284,6 +284,8 @@ evict:
             goto search;
         }
         lpage = coremap[paddr / PAGE_SIZE]->cme_page;
+        coremap[paddr / PAGE_SIZE]->cme_page = NULL;
+        spinlock_release(&coremap_lock);
         lock_acquire(lpage->lp_lock);
         /* coremap[paddr / PAGE_SIZE]->cme_page = NULL;
          * coremap[paddr / PAGE_SIZE]->cme_is_allocated = 0;

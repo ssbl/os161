@@ -159,7 +159,6 @@ vm_swapout(struct lpage *lpage)
 {
     KASSERT(lpage != NULL);
     KASSERT(lock_do_i_hold(lpage->lp_lock));
-    KASSERT(spinlock_do_i_hold(&coremap_lock));
 
     int slot, result, index;
     paddr_t paddr_victim;
@@ -176,9 +175,6 @@ vm_swapout(struct lpage *lpage)
     paddr_victim = lpage->lp_paddr;
     lpage->lp_slot = slot;
     lpage->lp_paddr = 0;
-    coremap[paddr_victim / PAGE_SIZE]->cme_page = NULL;
-
-    spinlock_release(&coremap_lock);
 
     /* write that page's data to swap file */
     uio_kinit(&iov, &uio, (void *)PADDR_TO_KVADDR(paddr_victim),
@@ -193,7 +189,6 @@ vm_swapout(struct lpage *lpage)
 
     /* vm_cleartlb(); */
     lock_release(lpage->lp_lock);
-    /* as_activate(); */
     if ((index = tlb_probe(lpage->lp_startaddr, 0)) != -1) {
         tlb_write(TLBHI_INVALID(index), TLBLO_INVALID(), index);
     }
