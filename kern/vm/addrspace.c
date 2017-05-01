@@ -429,6 +429,10 @@ as_copy(struct addrspace *old, struct addrspace **ret)
                     swapped = false;
                 }
                 lock_release(region_old->r_pages[j]->lp_lock);
+
+                spinlock_acquire(&coremap_lock);
+                coremap_set_lpage(paddr, region_new->r_pages[j]);
+                spinlock_release(&coremap_lock);
             }
         }
     }
@@ -464,6 +468,10 @@ as_copy(struct addrspace *old, struct addrspace **ret)
                 swapped = false;
             }
             lock_release(old->as_stack[i]->lp_lock);
+
+            spinlock_acquire(&coremap_lock);
+            coremap_set_lpage(paddr, newas->as_stack[i]);
+            spinlock_release(&coremap_lock);
         }
     }
     for (i = 0; i < HEAPPAGES; i++) {

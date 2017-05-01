@@ -164,11 +164,13 @@ search:
                     spinlock_acquire(&coremap_lock);
                 }
                 lpage = coremap[i+j]->cme_page;
+                coremap[i+j]->cme_page = NULL;
                 if (lpage == NULL) {
-                    cm_used_bytes =- PAGE_SIZE*(j+1);
+                    cm_used_bytes -= PAGE_SIZE*(j);
                     i = i + j + 1;
                     goto search;
                 }
+                spinlock_release(&coremap_lock);
                 lock_acquire(lpage->lp_lock);
                 vm_swapout(lpage);
             }
