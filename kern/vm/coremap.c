@@ -165,6 +165,7 @@ search:
                 }
                 lpage = coremap[i+j]->cme_page;
                 if (lpage == NULL) {
+                    cm_used_bytes =- PAGE_SIZE*(j+1);
                     i = i + j + 1;
                     goto search;
                 }
@@ -196,6 +197,7 @@ coremap_alloc_npages(unsigned n)
             spinlock_acquire(&coremap_lock);
             KASSERT(start != 0);
             i = start + n - 1;
+            coremap[i]->cme_is_allocated = 1;
             coremap[i]->cme_is_last_page = 1;
             for (int j = start; j < i; j++) {
                 coremap[j]->cme_is_allocated = 1;
